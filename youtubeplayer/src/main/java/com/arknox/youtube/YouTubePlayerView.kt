@@ -201,6 +201,29 @@ class YouTubePlayerView @JvmOverloads constructor(
         }
     }
 
+    /** Seek to an absolute position, in seconds. */
+    fun seekTo(seconds: Float) {
+        if (isPageLoaded) {
+            evaluateJavascript("if(player) player.currentTime=$seconds", null)
+        }
+    }
+
+    /** Playback speed, e.g. 0.5f, 1f, 1.25f, 2f. */
+    fun setSpeed(speed: Float) {
+        if (isPageLoaded) {
+            evaluateJavascript(
+                "if(player && player.ready && player.options.speed.length) player.speed=$speed", null
+            )
+        }
+    }
+
+    /** Picture fit: 0 = Fit (letterbox), 1 = Fill (crop), 2 = Stretch. */
+    fun setFitMode(mode: Int) {
+        if (isPageLoaded) {
+            evaluateJavascript("setFit($mode)", null)
+        }
+    }
+
     /**
      * Toggle fullscreen mode programmatically.
      */
@@ -274,6 +297,11 @@ class YouTubePlayerView @JvmOverloads constructor(
                     "ended" -> {
                         val videoId = data.optString("videoId", "")
                         listeners.forEach { it.onEnded(videoId) }
+                    }
+                    "time" -> {
+                        val t = data.optDouble("t", 0.0).toFloat()
+                        val d = data.optDouble("d", 0.0).toFloat()
+                        listeners.forEach { it.onTimeUpdate(t, d) }
                     }
                     "error" -> {
                         val message = data.optString("message", "Unknown error")

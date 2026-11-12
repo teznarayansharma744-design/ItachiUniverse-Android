@@ -46,9 +46,26 @@
 
         .plyr__video-wrapper {
             overflow: hidden;
-            border-radius: 8px;
-            /* Rounded corners for the player */
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        /* Stage: the player is always 100% of the width, centered vertically,
+           and scaled from JS (setFit) to Fit / Fill / Stretch. */
+        html, body {
+            margin: 0;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #player {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100vw;
+            transform: translateY(-50%);
+            transform-origin: 50% 50%;
         }
     </style>
 </head>
@@ -79,25 +96,9 @@
     <script>
         const player = new Plyr('#player', {
             iconUrl: 'plyr.svg',
-            controls: [
-                'play-large', // The large play button in the center
-                'restart', // Restart playback
-                'rewind', // Rewind by the seek time (default 10 seconds)
-                'play', // Play/pause playback
-                'fast-forward', // Fast forward by the seek time (default 10 seconds)
-                'progress', // The progress bar and scrubber for playback and buffering
-                'current-time', // The current time of playback
-                'duration', // The full duration of the media
-                'mute', // Toggle mute
-                'volume', // Volume control
-                'captions', // Toggle captions
-                'settings', // Settings menu
-                'pip', // Picture-in-picture (currently Safari only)
-                'airplay', // Airplay (currently Safari only)
-                'fullscreen', // Toggle fullscreen
-            ],
-            // Default settings to show in the menu
-            settings: ['captions', 'quality', 'speed', 'loop'],
+            // The controls are drawn natively by the app (gestures, lock, speed, fit...).
+            controls: [],
+            settings: [],
             // Speed options
             speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 4] },
             // Quality options
@@ -106,15 +107,17 @@
                 options: [4320, 2880, 2160, 1440, 1080, 720, 576, 480, 360, 240]
             },
             // Keyboard shortcuts
-            keyboard: { focused: true, global: false },
+            keyboard: { focused: false, global: false },
             // Tooltips
-            tooltips: { controls: true, seek: true },
+            tooltips: { controls: false, seek: false },
             // Other options
-            clickToPlay: true,
+            clickToPlay: false,
+            fullscreen: { enabled: false },
+            storage: { enabled: false },
             autopause: true,
             resetOnEnd: false,
-            invertTime: true,
-            toggleInvert: true,
+            invertTime: false,
+            toggleInvert: false,
             disableContextMenu: true,
             ratio: '16:9',
             youtube: {
@@ -128,6 +131,23 @@
             }
         });
 
+        // ---- Fit / Fill / Stretch (0 / 1 / 2) ----
+        let fitMode = 0;
+        function applyFit() {
+            const el = player.elements && player.elements.container;
+            if (!el) return;
+            const vw = window.innerWidth, vh = window.innerHeight;
+            const h = vw * 9 / 16;
+            let sx = 1, sy = 1;
+            if (fitMode === 0) { sx = sy = Math.min(1, vh / h); }
+            else if (fitMode === 1) { sx = sy = Math.max(1, vh / h); }
+            else { sy = vh / h; }
+            el.style.transform = 'translateY(-50%) scale(' + sx + ',' + sy + ')';
+        }
+        function setFit(m) { fitMode = m; applyFit(); }
+        window.addEventListener('resize', applyFit);
+        applyFit();
+
         // Helper to notify Android of events
         function notifyAndroid(event, data = {}) {
             if (window.Android && window.Android.onPlayerEvent) {
@@ -135,8 +155,17 @@
             }
         }
 
+        // Position / duration, 3-4 times a second, for the native seek bar
+        setInterval(function () {
+            try {
+                const d = player.duration || 0;
+                notifyAndroid('time', { t: player.currentTime || 0, d: isFinite(d) ? d : 0 });
+            } catch (e) { }
+        }, 300);
+
         // Add event listeners
         player.on('ready', (event) => {
+            applyFit();
             const videoId = player.source ? player.source : '';
             notifyAndroid('ready', { videoId: videoId });
         });
@@ -210,6 +239,7 @@
             if (id) {
                 player.source = {
                     type: 'video',
+                    autoplay: true,
                     sources: [
                         {
                             src: id,

@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -38,6 +39,7 @@ public class PlayerActivity extends BaseActivity {
     private LinearLayout info;
     private ExoPlayer player;
     private YouTubePlayerView yt;
+    private YtControls ytControls;
     private boolean fullscreen = false;
     private int lectureId;
     private String title, subtitle;
@@ -83,6 +85,7 @@ public class PlayerActivity extends BaseActivity {
     // ---------- loading ----------
     private void load() {
         if (yt != null) { yt.release(); yt = null; }
+        ytControls = null;
         videoHolder.removeAllViews();
         videoHolder.addView(new ProgressBar(this), new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
         run(() -> Api.playSource(lectureId, "video"), new Api.Callback<Models.PlaySource>() {
@@ -137,7 +140,16 @@ public class PlayerActivity extends BaseActivity {
                 toast(message);
             }
         });
-        // The library has its own fullscreen button (Plyr) and handles rotation itself.
+
+        // PLAYit-style controls (gestures, lock, speed, fit, fullscreen) on top of the video.
+        ytControls = new YtControls(this, yt, title, new YtControls.Host() {
+            @Override public boolean isFullscreen() { return fullscreen; }
+            @Override public void toggleFullscreen() { setFullscreen(!fullscreen); }
+            @Override public void onBack() { getOnBackPressedDispatcher().onBackPressed(); }
+        });
+        videoHolder.addView(ytControls, new FrameLayout.LayoutParams(-1, -1));
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         yt.loadVideo(videoId);
     }
 
@@ -190,6 +202,7 @@ public class PlayerActivity extends BaseActivity {
         if (yt != null) {
             YouTubePlayerView v = yt;
             yt = null;
+            ytControls = null;
             ViewGroup parent = (ViewGroup) v.getParent();
             if (parent != null) parent.removeView(v);
             v.release();
