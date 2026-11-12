@@ -1,17 +1,11 @@
 package com.itachi.universe;
 
-import android.annotation.SuppressLint;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -28,21 +22,22 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.ui.PlayerView;
 
+import com.arknox.youtube.YouTubePlayerListener;
+import com.arknox.youtube.YouTubePlayerView;
+
 import java.util.Map;
 
 /**
  * Asks the server where the video is (and whether this student may watch it), then plays it:
- * YouTube links in a WebView, everything else with ExoPlayer (Media3).
+ * YouTube links with the YouTubePlayerView library (Plyr), everything else with ExoPlayer (Media3).
  */
 @UnstableApi
 public class PlayerActivity extends BaseActivity {
-    private static final String YT_BASE = "https://www.youtube-nocookie.com";
-
     private LinearLayout rootCol;
     private FrameLayout videoHolder;
     private LinearLayout info;
     private ExoPlayer player;
-    private WebView web;
+    private YouTubePlayerView yt;
     private boolean fullscreen = false;
     private int lectureId;
     private String title, subtitle;
@@ -76,7 +71,8 @@ public class PlayerActivity extends BaseActivity {
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
-                if (fullscreen) setFullscreen(false);
+                if (yt != null && yt.isInFullscreen()) yt.exitFullscreen();
+                else if (fullscreen) setFullscreen(false);
                 else finish();
             }
         });
@@ -86,6 +82,7 @@ public class PlayerActivity extends BaseActivity {
 
     // ---------- loading ----------
     private void load() {
+        if (yt != null) { yt.release(); yt = null; }
         videoHolder.removeAllViews();
         videoHolder.addView(new ProgressBar(this), new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
         run(() -> Api.playSource(lectureId, "video"), new Api.Callback<Models.PlaySource>() {
@@ -131,45 +128,17 @@ public class PlayerActivity extends BaseActivity {
     }
 
     // ---------- YouTube ----------
-    @SuppressLint({"SetJavaScriptEnabled"})
     private void startYoutube(String videoId) {
-        web = new WebView(this);
-        web.setBackgroundColor(Color.BLACK);
-        WebSettings s = web.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setMediaPlaybackRequiresUserGesture(false);
-        s.setUserAgentString("Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) "
-                + "Chrome/124.0.0.0 Mobile Safari/537.36");
-        web.setWebChromeClient(new WebChromeClient());
-        // Stay on the video: no link inside the page may open another page.
-        web.setWebViewClient(new WebViewClient() {
-            @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
-                if (!r.isForMainFrame()) return false;
-                String u = r.getUrl().toString();
-                return !(u.startsWith(YT_BASE) || u.equals("about:blank"));
+        yt = new YouTubePlayerView(this);
+        yt.setBackgroundColor(Color.BLACK);
+        videoHolder.addView(yt, new FrameLayout.LayoutParams(-1, -1));
+        yt.addListener(new YouTubePlayerListener() {
+            @Override public void onError(String message) {
+                toast(message);
             }
         });
-        videoHolder.addView(web, new FrameLayout.LayoutParams(-1, -1));
-
-        TextView fs = UI.tv(this, "\u26F6", 22, false, Color.WHITE);
-        fs.setGravity(Gravity.CENTER);
-        fs.setBackground(UI.box(0x80000000, UI.dp(this, 12), 0, 0));
-        fs.setOnClickListener(v -> setFullscreen(!fullscreen));
-        FrameLayout.LayoutParams fp = new FrameLayout.LayoutParams(UI.dp(this, 40), UI.dp(this, 40), Gravity.TOP | Gravity.END);
-        fp.setMargins(0, UI.dp(this, 8), UI.dp(this, 8), 0);
-        videoHolder.addView(fs, fp);
-
-        String html = "<!doctype html><html><head><meta charset='utf-8'>"
-                + "<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>"
-                + "<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}"
-                + "#p{position:absolute;left:0;top:0;width:100%;height:100%;border:0}</style></head><body>"
-                + "<div id='p'></div><script src='https://www.youtube.com/iframe_api'></script><script>"
-                + "function onYouTubeIframeAPIReady(){new YT.Player('p',{videoId:'" + videoId + "',host:'" + YT_BASE + "',"
-                + "playerVars:{playsinline:1,rel:0,modestbranding:1,fs:0,autoplay:1,iv_load_policy:3},"
-                + "events:{onReady:function(e){e.target.playVideo();}}});}"
-                + "</script></body></html>";
-        web.loadDataWithBaseURL(YT_BASE, html, "text/html", "utf-8", null);
+        // The library has its own fullscreen button (Plyr) and handles rotation itself.
+        yt.loadVideo(videoId);
     }
 
     // ---------- fullscreen ----------
@@ -208,21 +177,22 @@ public class PlayerActivity extends BaseActivity {
     @Override protected void onPause() {
         super.onPause();
         if (player != null) player.pause();
-        if (web != null) web.onPause();
+        if (yt != null) { yt.pause(); yt.onPause(); }
     }
 
     @Override protected void onResume() {
         super.onResume();
-        if (web != null) web.onResume();
+        if (yt != null) yt.onResume();
     }
 
     @Override protected void onDestroy() {
         if (player != null) { player.release(); player = null; }
-        if (web != null) {
-            ViewGroup parent = (ViewGroup) web.getParent();
-            if (parent != null) parent.removeView(web);
-            web.destroy();
-            web = null;
+        if (yt != null) {
+            YouTubePlayerView v = yt;
+            yt = null;
+            ViewGroup parent = (ViewGroup) v.getParent();
+            if (parent != null) parent.removeView(v);
+            v.release();
         }
         super.onDestroy();
     }

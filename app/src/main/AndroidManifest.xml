@@ -22,7 +22,7 @@
         <activity android:name=".SubjectsActivity" android:exported="false" />
         <activity android:name=".UnitsActivity" android:exported="false" />
         <activity android:name=".LecturesActivity" android:exported="false" />
-        <activity android:name=".PlayerActivity" android:exported="false"
+        <activity android:name=".PlayerActivity" android:exported="false" android:hardwareAccelerated="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden" />
         <activity android:name=".PdfActivity" android:exported="false" />
         <activity android:name=".AdminLoginActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />

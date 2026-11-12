@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plyr Player</title>
+    <!-- Plyr CSS -->
+    <link rel="stylesheet" href="plyr.css" />
+    <style>
+        /* Modern Dark Theme Variables */
+        :root {
+            --plyr-color-main: #f00;
+            /* YouTube Red Accent */
+            --plyr-video-background: #000;
+            --plyr-menu-background: rgba(20, 20, 20, 0.9);
+            --plyr-menu-color: #fff;
+            --plyr-menu-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            --plyr-font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --plyr-control-icon-size: 18px;
+            --plyr-control-spacing: 10px;
+        }
+
+        /* Plyr Customization */
+        .plyr--full-ui input[type=range] {
+            color: var(--plyr-color-main);
+        }
+
+        .plyr__control--overlaid {
+            background: rgba(240, 0, 0, 0.8) !important;
+        }
+
+        .plyr--video .plyr__controls {
+            background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
+            border-bottom-left-radius: inherit;
+            border-bottom-right-radius: inherit;
+        }
+
+        /* CSS to hide YouTube Branding - only in normal mode, not fullscreen */
+        .plyr__video-embed iframe {
+            top: -50%;
+            height: 200%;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .plyr__video-wrapper {
+            overflow: hidden;
+            border-radius: 8px;
+            /* Rounded corners for the player */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 
+    # Quick setup 
+    ## HTML
+    ### YouTube (Progressive Enhancement)
+    We recommend progressive enhancement with the embedded players. 
+    You can elect to use an <iframe> as the source element (which Plyr will progressively enhance).
+    -->
+    <!-- Video Loading Controls -->
+    <!-- Plyr Player Container -->
+    <div class="plyr__video-embed" id="player">
+        <iframe
+            src="https://www.youtube.com/embed/?origin=https://plyr.io&amp;iv_load_policy=3&amp;modestbranding=1&amp;playsinline=1&amp;showinfo=0&amp;rel=0&amp;enablejsapi=1"
+            allowfullscreen allowtransparency allow="autoplay"></iframe>
+    </div>
+
+    <!-- 
+    ## JavaScript
+    Alternatively you can include the plyr.js script before the closing </body> tag 
+    and then in your JS create a new instance of Plyr as below.
+    -->
+    <script src="plyr.js"></script>
+    <script>
+        const player = new Plyr('#player', {
+            iconUrl: 'plyr.svg',
+            controls: [
+                'play-large', // The large play button in the center
+                'restart', // Restart playback
+                'rewind', // Rewind by the seek time (default 10 seconds)
+                'play', // Play/pause playback
+                'fast-forward', // Fast forward by the seek time (default 10 seconds)
+                'progress', // The progress bar and scrubber for playback and buffering
+                'current-time', // The current time of playback
+                'duration', // The full duration of the media
+                'mute', // Toggle mute
+                'volume', // Volume control
+                'captions', // Toggle captions
+                'settings', // Settings menu
+                'pip', // Picture-in-picture (currently Safari only)
+                'airplay', // Airplay (currently Safari only)
+                'fullscreen', // Toggle fullscreen
+            ],
+            // Default settings to show in the menu
+            settings: ['captions', 'quality', 'speed', 'loop'],
+            // Speed options
+            speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 4] },
+            // Quality options
+            quality: {
+                default: 576,
+                options: [4320, 2880, 2160, 1440, 1080, 720, 576, 480, 360, 240]
+            },
+            // Keyboard shortcuts
+            keyboard: { focused: true, global: false },
+            // Tooltips
+            tooltips: { controls: true, seek: true },
+            // Other options
+            clickToPlay: true,
+            autopause: true,
+            resetOnEnd: false,
+            invertTime: true,
+            toggleInvert: true,
+            disableContextMenu: true,
+            ratio: '16:9',
+            youtube: {
+                noCookie: false,
+                rel: 0,
+                showinfo: 0,
+                iv_load_policy: 3,
+                modestbranding: 1,
+                controls: 0,
+                fs: 0
+            }
+        });
+
+        // Helper to notify Android of events
+        function notifyAndroid(event, data = {}) {
+            if (window.Android && window.Android.onPlayerEvent) {
+                window.Android.onPlayerEvent(event, JSON.stringify(data));
+            }
+        }
+
+        // Add event listeners
+        player.on('ready', (event) => {
+            const videoId = player.source ? player.source : '';
+            notifyAndroid('ready', { videoId: videoId });
+        });
+
+        player.on('playing', (event) => {
+            notifyAndroid('playing', { videoId: player.source });
+        });
+
+        player.on('pause', (event) => {
+            notifyAndroid('paused', { videoId: player.source });
+        });
+
+        player.on('ended', (event) => {
+            notifyAndroid('ended', { videoId: player.source });
+        });
+
+        player.on('error', (event) => {
+            notifyAndroid('error', { message: 'Player error occurred' });
+        });
+
+        // Handle fullscreen changes to fix aspect ratio
+        player.on('enterfullscreen', (event) => {
+            const iframe = document.querySelector('.plyr__video-embed iframe');
+            if (iframe) {
+                iframe.style.top = '0';
+                iframe.style.height = '100%';
+                iframe.style.width = '100%';
+                iframe.style.left = '0';
+                iframe.style.position = 'absolute';
+            }
+        });
+
+        player.on('exitfullscreen', (event) => {
+            const iframe = document.querySelector('.plyr__video-embed iframe');
+            if (iframe) {
+                iframe.style.top = '-50%';
+                iframe.style.height = '200%';
+                iframe.style.width = '';
+                iframe.style.left = '';
+                iframe.style.position = '';
+            }
+        });
+
+        // Function to extract YouTube Video ID (handles URLs and raw IDs)
+        function extractVideoId(url) {
+            if (!url) return '';
+
+            // Regex pattern to extract video ID from various YouTube URL formats
+            // Supports: youtu.be, youtube.com/v/, youtube.com/watch, shorts, live streams, etc.
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/|live\/)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+
+            // If regex matches and has valid ID, return it; otherwise return input as-is (it might be a raw ID)
+            if (match && match[2] && match[2].length === 11) {
+                return match[2];
+            }
+
+            // Check if input is already a valid video ID (11 characters, alphanumeric + underscore/dash)
+            if (url && /^[a-zA-Z0-9_-]{11}$/.test(url)) {
+                return url;
+            }
+
+            return '';
+        }
+
+        // Function to load video (works with both regular and live videos)
+        function loadVideo(videoIdOrUrl) {
+            const id = extractVideoId(videoIdOrUrl);
+            console.log('Loading video:', id);
+
+            if (id) {
+                player.source = {
+                    type: 'video',
+                    sources: [
+                        {
+                            src: id,
+                            provider: 'youtube',
+                        },
+                    ],
+                };
+            } else {
+                console.warn('Invalid video ID or URL:', videoIdOrUrl);
+                notifyAndroid('error', { message: 'Invalid video ID or URL format' });
+            }
+        }
+
+    </script>
+</body>
+
+</html>
