@@ -25,8 +25,8 @@ public class KeyActivity extends BaseActivity {
         col.addView(UI.space(this, 32));
         col.addView(UI.tv(this, "Enter your key", 30, true, text));
         col.addView(UI.space(this, 8));
-        col.addView(UI.tv(this, "Your key is generated for this device only. Copy the Device ID below and send it to the admin on Telegram to get your key.", 15, false, dim));
-        col.addView(UI.textButton(this, "Message admin on Telegram", v -> openAdminTelegram()));
+        col.addView(UI.tv(this, "Your key works on this device only. Tap Buy Premium to pay in Telegram and receive your key. Already have one? Paste it below.", 15, false, dim));
+        col.addView(UI.textButton(this, "Buy Premium on Telegram", v -> openShopBot()));
         col.addView(UI.space(this, 12));
 
         LinearLayout card = UI.card(this, 28, 20, null, null);

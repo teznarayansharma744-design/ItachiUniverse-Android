@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,6 +27,16 @@ jobs:
         env:
           RUN_NUMBER: ${{ github.run_number }}
         run: gradle assembleRelease --no-daemon
+
+      - name: Publish release for in-app update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CODE=$((1000 + ${{ github.run_number }}))
+          cp app/build/outputs/apk/release/*.apk itachi-universe.apk
+          gh release create "v$CODE" itachi-universe.apk \
+            --title "Version 1.0.${{ github.run_number }}" \
+            --notes "New version of Itachi Universe." --latest
 
       - uses: actions/upload-artifact@v4
         with:

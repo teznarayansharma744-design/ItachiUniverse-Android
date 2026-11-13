@@ -57,6 +57,7 @@ public class HomeActivity extends BaseActivity {
         setScreen(root);
         select(0);
         Catalog.load(this::refresh);
+        Updater.check(this, false);
     }
 
     private void select(int idx) {
@@ -219,6 +220,12 @@ public class HomeActivity extends BaseActivity {
         dev.addView(devText, new LinearLayout.LayoutParams(0, -2, 1f));
         dev.addView(UI.textButton(this, "Copy", v -> copyToClipboard(DeviceId.get(this), "Device ID copied.")));
         col.addView(dev, UI.matchWrap());
+        col.addView(UI.space(this, 12));
+
+        LinearLayout upd = UI.card(this, 22, 18, null, v -> Updater.check(this, true));
+        upd.addView(UI.tv(this, "Check for updates", 16, true, text));
+        upd.addView(UI.tv(this, "Current version " + BuildConfig.VERSION_NAME, 13, false, dim));
+        col.addView(upd, UI.matchWrap());
         col.addView(UI.space(this, 12));
 
         LinearLayout logout = UI.card(this, 22, 18, null, v -> confirmLogout());

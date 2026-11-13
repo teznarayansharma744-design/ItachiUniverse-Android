@@ -12,8 +12,10 @@ android {
         minSdk 24
         targetSdk 34
         def run = System.getenv("RUN_NUMBER") ?: "1"
-        versionCode run.toInteger()
+        versionCode 1000 + run.toInteger()  // above the old Flutter builds, so it installs over them
         versionName "1.0.${run}"
+        // GitHub sets this in Actions (owner/name). Empty on local builds, which turns updates off.
+        buildConfigField "String", "UPDATE_REPO", "\"${System.getenv('GITHUB_REPOSITORY') ?: ''}\""
         buildConfigField "String", "DEFAULT_BASE_URL", "\"https://itachi-backend.onrender.com\""
     }
 

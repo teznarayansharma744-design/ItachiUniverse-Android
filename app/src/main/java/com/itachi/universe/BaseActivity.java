@@ -75,6 +75,25 @@ public abstract class BaseActivity extends AppCompatActivity {
         }
     }
 
+    /** Opens the shop bot in Telegram with this phone's Device ID, so it can show the price and
+     *  start the payment straight away. Falls back to the admin chat if the shop is not ready. */
+    protected void openShopBot() {
+        final String device = DeviceId.get(this);
+        toast("Opening Telegram...");
+        run(Api::shopInfo, new Api.Callback<com.google.gson.JsonObject>() {
+            @Override public void onSuccess(com.google.gson.JsonObject info) {
+                String bot = info.get("bot").getAsString();
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://t.me/" + bot + "?start=" + device)));
+                } catch (ActivityNotFoundException e) {
+                    toast("Telegram is not installed. Search @" + bot + " in your browser.");
+                }
+            }
+            @Override public void onError(Api.ApiException e) { openAdminTelegram(); }
+        });
+    }
+
     protected void copyToClipboard(String text, String done) {
         android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         cm.setPrimaryClip(android.content.ClipData.newPlainText("itachi", text));

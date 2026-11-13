@@ -203,6 +203,11 @@ public final class Api {
         call("POST", "/admin/keys/" + key + "/device", body);
     }
 
+    /** Shop bot username and prices: {"bot": "...", "plans": [{name, days, price}]}. */
+    public static JsonObject shopInfo() throws ApiException {
+        return call("GET", "/shop/info", null, 30).getAsJsonObject();
+    }
+
     // ---------- admin: content ----------
     public static JsonArray adminContent() throws ApiException {
         return call("GET", "/admin/content", null).getAsJsonArray();

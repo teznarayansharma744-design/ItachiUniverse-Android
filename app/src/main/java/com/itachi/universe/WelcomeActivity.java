@@ -50,8 +50,8 @@ public class WelcomeActivity extends BaseActivity {
         col.addView(option("\uD83D\uDD11", "Enter Premium Key", "Enter your key to unlock the full course", null, true,
                 v -> startActivity(new Intent(this, KeyActivity.class))));
         col.addView(UI.space(this, 16));
-        col.addView(option("\u2B50", "Get Premium", "Contact us on Telegram to get a key", null, false,
-                v -> openAdminTelegram()));
+        col.addView(option("\u2B50", "Get Premium", "Pay in Telegram and get your key instantly", null, false,
+                v -> openShopBot()));
         col.addView(UI.space(this, 28));
         TextView foot = UI.tv(this, "One key, one device. Your key works only on your phone.", 12, false, dim);
         foot.setGravity(Gravity.CENTER);
