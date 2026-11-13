@@ -17,6 +17,8 @@ import androidx.core.view.WindowInsetsControllerCompat;
 
 public abstract class BaseActivity extends AppCompatActivity {
     public static final String ADMIN_TELEGRAM_URL = "https://t.me/Use_r_tg";
+    /** The shop bot. Used when the server cannot be reached to look it up. */
+    public static final String SHOP_BOT = "Key_GenAi_Bot";
 
     protected UI.GlassBackground bg;
     protected FrameLayout holder;
@@ -79,19 +81,15 @@ public abstract class BaseActivity extends AppCompatActivity {
      *  start the payment straight away. Falls back to the admin chat if the shop is not ready. */
     protected void openShopBot() {
         final String device = DeviceId.get(this);
-        toast("Opening Telegram...");
-        run(Api::shopInfo, new Api.Callback<com.google.gson.JsonObject>() {
-            @Override public void onSuccess(com.google.gson.JsonObject info) {
-                String bot = info.get("bot").getAsString();
-                try {
-                    startActivity(new Intent(Intent.ACTION_VIEW,
-                            Uri.parse("https://t.me/" + bot + "?start=" + device)));
-                } catch (ActivityNotFoundException e) {
-                    toast("Telegram is not installed. Search @" + bot + " in your browser.");
-                }
-            }
-            @Override public void onError(Api.ApiException e) { openAdminTelegram(); }
-        });
+        openBot(SHOP_BOT, device);  // opens straight away; no waiting for the server
+    }
+
+    private void openBot(String bot, String device) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/" + bot + "?start=" + device)));
+        } catch (ActivityNotFoundException e) {
+            toast("Telegram is not installed. Search @" + bot + " in your browser.");
+        }
     }
 
     protected void copyToClipboard(String text, String done) {
