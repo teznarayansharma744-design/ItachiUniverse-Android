@@ -213,11 +213,6 @@ public final class Api {
         return call("PUT", "/admin/about", doc).getAsJsonObject();
     }
 
-    /** A short-lived link for MX Player, VLC or PlayIt. YouTube URLs are resolved by the backend. */
-    public static String externalLink(int lectureId) throws ApiException {
-        return call("GET", "/play/" + lectureId + "/external", null).getAsJsonObject().get("url").getAsString();
-    }
-
     /** Shop bot username and prices: {"bot": "...", "plans": [{name, days, price}]}. */
     public static JsonObject shopInfo() throws ApiException {
         return call("GET", "/shop/info", null, 30).getAsJsonObject();

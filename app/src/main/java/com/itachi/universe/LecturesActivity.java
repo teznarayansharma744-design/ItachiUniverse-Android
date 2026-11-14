@@ -115,7 +115,11 @@ public class LecturesActivity extends BaseActivity {
     }
 
     private void play(Models.Lecture l) {
-        Players.choose(this, l, subject.name + " / " + unit.name);
+        Intent i = new Intent(this, PlayerActivity.class);
+        i.putExtra("id", l.id);
+        i.putExtra("title", l.title);
+        i.putExtra("subtitle", subject.name + " / " + unit.name);
+        startActivity(i);
     }
 
     private void openPdf(Models.Lecture l) {
