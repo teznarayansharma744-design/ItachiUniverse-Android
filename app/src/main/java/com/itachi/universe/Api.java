@@ -208,6 +208,19 @@ public final class Api {
         return call("GET", "/about", null, 30).getAsJsonObject();
     }
 
+    /** The notice banner for the Home screen. Public. Empty text means none. */
+    public static JsonObject announce() throws ApiException {
+        return call("GET", "/announce", null, 20).getAsJsonObject();
+    }
+
+    /** Admin only. Empty text hides the banner. */
+    public static JsonObject saveAnnounce(String text, String link) throws ApiException {
+        JsonObject body = new JsonObject();
+        body.addProperty("text", text);
+        body.addProperty("link", link);
+        return call("PUT", "/admin/announce", body).getAsJsonObject();
+    }
+
     /** Admin only: replaces the whole About Developer page and returns what the server kept. */
     public static JsonObject saveAbout(JsonObject doc) throws ApiException {
         return call("PUT", "/admin/about", doc).getAsJsonObject();

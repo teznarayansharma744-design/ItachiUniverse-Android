@@ -111,6 +111,16 @@ public class HomeActivity extends BaseActivity {
         col.addView(header, UI.matchWrap());
         col.addView(UI.space(this, 20));
 
+        LinearLayout searchCard = UI.card(this, 20, 14, null, v -> startActivity(new Intent(this, SearchActivity.class)));
+        searchCard.addView(UI.tv(this, "\uD83D\uDD0D  Search lectures", 15, false, dim));
+        col.addView(searchCard, UI.matchWrap());
+        col.addView(UI.space(this, 16));
+
+        announceBox = new LinearLayout(this);
+        announceBox.setOrientation(LinearLayout.VERTICAL);
+        col.addView(announceBox, UI.matchWrap());
+        loadAnnouncement();
+
         if (Access.isDemo()) {
             LinearLayout banner = UI.card(this, 24, 16, new int[]{0x595B5BFF, 0x2E19C3B1},
                     v -> startActivity(new Intent(this, KeyActivity.class)));
@@ -189,6 +199,41 @@ public class HomeActivity extends BaseActivity {
         lp.bottomMargin = UI.dp(this, 12);
         card.setLayoutParams(lp);
         return card;
+    }
+
+    // ---------- Notice banner ----------
+    private LinearLayout announceBox;
+
+    private void loadAnnouncement() {
+        run(Api::announce, new Api.Callback<com.google.gson.JsonObject>() {
+            @Override public void onSuccess(com.google.gson.JsonObject d) {
+                announceBox.removeAllViews();
+                String text = Models.str(d, "text"), link = Models.str(d, "link");
+                if (text.isEmpty()) return;
+                android.content.SharedPreferences prefs = getSharedPreferences("ui", MODE_PRIVATE);
+                if (String.valueOf(text.hashCode()).equals(prefs.getString("ann_dismissed", ""))) return;
+                LinearLayout card = UI.card(HomeActivity.this, 22, 16, new int[]{0x59FFB020, 0x2EFF6B6B}, null);
+                LinearLayout row = new LinearLayout(HomeActivity.this);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.addView(UI.tv(HomeActivity.this, text, 14, true, UI.text(HomeActivity.this)),
+                        new LinearLayout.LayoutParams(0, -2, 1f));
+                row.addView(UI.textButton(HomeActivity.this, "\u2715", v -> {
+                    prefs.edit().putString("ann_dismissed", String.valueOf(text.hashCode())).apply();
+                    announceBox.removeAllViews();
+                }));
+                card.addView(row);
+                if (!link.isEmpty()) {
+                    card.addView(UI.textButton(HomeActivity.this, "Open", v -> {
+                        try {
+                            startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(link)));
+                        } catch (Exception e) { toast("Could not open this link."); }
+                    }));
+                }
+                announceBox.addView(card, UI.matchWrap());
+                announceBox.addView(UI.space(HomeActivity.this, 16));
+            }
+            @Override public void onError(Api.ApiException e) { /* no banner if the server is asleep */ }
+        });
     }
 
     // ---------- About developer ----------

@@ -25,6 +25,10 @@ public abstract class BaseActivity extends AppCompatActivity {
 
     /** Shows [content] on the glass background, below the status bar and above the nav bar. */
     protected void setScreen(View content) {
+        if (secure()) {  // blocks screenshots and screen recording on this screen
+            getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE,
+                    android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        }
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         bg = new UI.GlassBackground(this);
         holder = new FrameLayout(this);
@@ -56,6 +60,9 @@ public abstract class BaseActivity extends AppCompatActivity {
         sv.addView(child, new FrameLayout.LayoutParams(-1, -2));
         return sv;
     }
+
+    /** Screens that show lectures return true, so they cannot be screenshotted or recorded. */
+    protected boolean secure() { return false; }
 
     protected boolean alive() { return !isFinishing() && !isDestroyed(); }
 

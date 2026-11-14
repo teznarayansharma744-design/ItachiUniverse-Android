@@ -43,6 +43,51 @@ public class PlayerActivity extends BaseActivity {
     private boolean fullscreen = false;
     private int lectureId;
     private String title, subtitle;
+    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private TextView watermark;
+    private boolean resumed = false;
+    private float lastSavedAt = -100f;
+
+    @Override protected boolean secure() { return true; }
+
+    /** Saves the position every few seconds while an ExoPlayer video plays. */
+    private final Runnable saver = new Runnable() {
+        @Override public void run() {
+            saveExoProgress();
+            handler.postDelayed(this, 5000);
+        }
+    };
+
+    private void saveExoProgress() {
+        if (player == null) return;
+        long dur = player.getDuration();
+        if (dur > 0) Progress.save(this, lectureId, player.getCurrentPosition() / 1000f, dur / 1000f);
+    }
+
+    /** A faint Device ID that drifts around the video. If a recording leaks, it shows whose key it came from. */
+    private void addWatermark() {
+        if (watermark != null && watermark.getParent() != null) ((ViewGroup) watermark.getParent()).removeView(watermark);
+        watermark = new TextView(this);
+        watermark.setText(DeviceId.get(this));
+        watermark.setTextColor(0x59FFFFFF);
+        watermark.setTextSize(11);
+        watermark.setShadowLayer(3f, 0f, 0f, 0xAA000000);
+        videoHolder.addView(watermark, new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START));
+        moveWatermark();
+    }
+
+    private final Runnable mover = this::moveWatermark;
+
+    private void moveWatermark() {
+        handler.removeCallbacks(mover);
+        if (watermark == null || watermark.getParent() == null) return;
+        int w = videoHolder.getWidth(), h = videoHolder.getHeight();
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) watermark.getLayoutParams();
+        lp.leftMargin = w > 200 ? (int) (Math.random() * (w - UI.dp(this, 130))) : UI.dp(this, 16);
+        lp.topMargin = h > 100 ? (int) (Math.random() * (h - UI.dp(this, 40))) : UI.dp(this, 16);
+        watermark.setLayoutParams(lp);
+        handler.postDelayed(mover, 15000);
+    }
 
     @Override
     protected void onCreate(Bundle b) {
@@ -84,6 +129,7 @@ public class PlayerActivity extends BaseActivity {
 
     // ---------- loading ----------
     private void load() {
+        resumed = false;
         if (yt != null) { yt.release(); yt = null; }
         ytControls = null;
         videoHolder.removeAllViews();
@@ -126,8 +172,15 @@ public class PlayerActivity extends BaseActivity {
         pv.setFullscreenButtonClickListener(isFull -> setFullscreen(isFull));
         videoHolder.addView(pv, new FrameLayout.LayoutParams(-1, -1));
         player.setMediaItem(MediaItem.fromUri(src.url));
+        float from = Progress.resume(this, lectureId);
+        if (from > 0) {
+            player.seekTo((long) (from * 1000));
+            toast("Resuming from " + Progress.clock(from));
+        }
         player.prepare();
         player.setPlayWhenReady(true);
+        handler.postDelayed(saver, 5000);
+        addWatermark();
     }
 
     // ---------- YouTube ----------
@@ -136,6 +189,21 @@ public class PlayerActivity extends BaseActivity {
         yt.setBackgroundColor(Color.BLACK);
         videoHolder.addView(yt, new FrameLayout.LayoutParams(-1, -1));
         yt.addListener(new YouTubePlayerListener() {
+            @Override public void onPlaying(String videoId) {
+                if (resumed || yt == null) return;
+                resumed = true;
+                float from = Progress.resume(PlayerActivity.this, lectureId);
+                if (from > 0) {
+                    yt.seekTo(from);
+                    toast("Resuming from " + Progress.clock(from));
+                }
+            }
+            @Override public void onTimeUpdate(float currentTime, float duration) {
+                if (Math.abs(currentTime - lastSavedAt) >= 5f) {
+                    lastSavedAt = currentTime;
+                    Progress.save(PlayerActivity.this, lectureId, currentTime, duration);
+                }
+            }
             @Override public void onError(String message) {
                 toast(message);
             }
@@ -151,6 +219,7 @@ public class PlayerActivity extends BaseActivity {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         yt.loadVideo(videoId);
+        addWatermark();
     }
 
     // ---------- fullscreen ----------
@@ -188,6 +257,7 @@ public class PlayerActivity extends BaseActivity {
     // ---------- lifecycle ----------
     @Override protected void onPause() {
         super.onPause();
+        saveExoProgress();
         if (player != null) player.pause();
         if (yt != null) { yt.pause(); yt.onPause(); }
     }
@@ -198,6 +268,8 @@ public class PlayerActivity extends BaseActivity {
     }
 
     @Override protected void onDestroy() {
+        handler.removeCallbacksAndMessages(null);
+        saveExoProgress();
         if (player != null) { player.release(); player = null; }
         if (yt != null) {
             YouTubePlayerView v = yt;

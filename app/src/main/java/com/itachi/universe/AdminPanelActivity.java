@@ -34,17 +34,24 @@ public class AdminPanelActivity extends BaseActivity {
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.addView(UI.backHeader(this, "Owner", "Admin panel"), new LinearLayout.LayoutParams(0, -2, 1f));
         head.addView(UI.textButton(this, "Lectures", v -> startActivity(new Intent(this, AdminContentActivity.class))));
-        head.addView(UI.textButton(this, "About", v -> startActivity(new Intent(this, AdminAboutActivity.class))));
         head.addView(UI.textButton(this, "Log out", v -> {
             Api.adminLogout();
             startActivity(new Intent(this, AdminLoginActivity.class));
             finish();
         }));
         col.addView(head, UI.matchWrap());
-        col.addView(UI.space(this, 20));
+
+        LinearLayout tools = new LinearLayout(this);
+        tools.addView(UI.textButton(this, "About page", v -> startActivity(new Intent(this, AdminAboutActivity.class))));
+        tools.addView(UI.textButton(this, "Home notice", v -> showNoticeDialog()));
+        col.addView(tools, UI.matchWrap());
+        col.addView(UI.space(this, 12));
 
         statsRow = new LinearLayout(this);
         col.addView(statsRow, UI.matchWrap());
+        dashBox = new LinearLayout(this);
+        dashBox.setOrientation(LinearLayout.VERTICAL);
+        col.addView(dashBox, UI.matchWrap());
         col.addView(UI.space(this, 16));
 
         EditText search = UI.input(this, "Search by key, device or name");
@@ -118,7 +125,52 @@ public class AdminPanelActivity extends BaseActivity {
         });
     }
 
+    private LinearLayout dashBox;
+
+    private void showNoticeDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(UI.dp(this, 20), UI.dp(this, 8), UI.dp(this, 20), 0);
+        EditText text = UI.input(this, "Notice for the Home screen (empty hides it)");
+        EditText link = UI.input(this, "Link (optional)");
+        box.addView(text, UI.matchWrap());
+        box.addView(UI.space(this, 10));
+        box.addView(link, UI.matchWrap());
+        run(Api::announce, new Api.Callback<com.google.gson.JsonObject>() {
+            @Override public void onSuccess(com.google.gson.JsonObject d) {
+                text.setText(Models.str(d, "text"));
+                link.setText(Models.str(d, "link"));
+            }
+            @Override public void onError(Api.ApiException e) {}
+        });
+        new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Home notice").setView(box)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save", (d, w) -> run(
+                        () -> Api.saveAnnounce(text.getText().toString().trim(), link.getText().toString().trim()),
+                        new Api.Callback<com.google.gson.JsonObject>() {
+                            @Override public void onSuccess(com.google.gson.JsonObject r) { toast("Saved."); }
+                            @Override public void onError(Api.ApiException e) { toast(e.getMessage()); }
+                        }))
+                .show();
+    }
+
     private void showStats(Models.AdminStats s) {
+        dashBox.removeAllViews();
+        LinearLayout money = UI.card(this, 18, 14, null, null);
+        money.addView(UI.tv(this, "Sales", 13, false, UI.dim(this)));
+        money.addView(UI.tv(this, "\u20B9" + s.revenue + " total  \u00B7  " + s.orders + " orders", 16, true, UI.text(this)));
+        money.addView(UI.tv(this, "\u20B9" + s.revenueWeek + " in the last 7 days  \u00B7  " + s.ordersToday + " orders today", 13, false, UI.dim(this)));
+        if (!s.top.isEmpty()) {
+            money.addView(UI.space(this, 10));
+            money.addView(UI.tv(this, "Most watched", 13, false, UI.dim(this)));
+            for (int i = 0; i < s.top.size(); i++) {
+                money.addView(UI.tv(this, (i + 1) + ". " + s.top.get(i), 13, false, UI.text(this)));
+            }
+        }
+        LinearLayout.LayoutParams mp = UI.matchWrap();
+        mp.topMargin = UI.dp(this, 12);
+        dashBox.addView(money, mp);
+
         statsRow.removeAllViews();
         String[] labels = {"Total", "Active", "Expired", "Revoked"};
         int[] vals = {s.total, s.active, s.expired, s.revoked};

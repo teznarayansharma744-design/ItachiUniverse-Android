@@ -38,6 +38,7 @@
         <activity android:name=".PdfActivity" android:exported="false" />
         <activity android:name=".AdminLoginActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".AdminPanelActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".SearchActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".AdminAboutActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".AdminContentActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
     </application>

@@ -73,9 +73,21 @@ public final class Models {
 
     public static class AdminStats {
         public int total, active, expired, revoked;
+        public int orders, revenue, ordersToday, revenueWeek;
+        public List<String> top = new ArrayList<>();  // "title  -  12 views"
 
         public static AdminStats from(JsonObject j) {
             AdminStats s = new AdminStats();
+            s.orders = num(j, "orders");
+            s.revenue = num(j, "revenue");
+            s.ordersToday = num(j, "orders_today");
+            s.revenueWeek = num(j, "revenue_week");
+            if (j.has("top_lectures") && j.get("top_lectures").isJsonArray()) {
+                for (JsonElement e : j.getAsJsonArray("top_lectures")) {
+                    JsonObject t = e.getAsJsonObject();
+                    s.top.add(str(t, "title") + "  -  " + num(t, "views") + " views");
+                }
+            }
             s.total = num(j, "total");
             s.active = num(j, "active");
             s.expired = num(j, "expired");

@@ -31,6 +31,8 @@ import java.util.concurrent.Executors;
 public class PdfActivity extends BaseActivity {
     private static final float MIN_ZOOM = 1f, MAX_ZOOM = 3f;
 
+    @Override protected boolean secure() { return true; }
+
     private int lectureId;
     private String title;
     private byte[] bytes;

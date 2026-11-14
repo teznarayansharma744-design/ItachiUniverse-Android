@@ -48,6 +48,11 @@ public class LecturesActivity extends BaseActivity {
         render();
     }
 
+    @Override protected void onResume() {
+        super.onResume();
+        if (list != null) render();  // refresh the watched marks after coming back from the player
+    }
+
     private void render() {
         tabsRow.removeAllViews();
         String[] names = {"All", "Video", "PDF"};
@@ -89,7 +94,11 @@ public class LecturesActivity extends BaseActivity {
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
         tp.leftMargin = UI.dp(this, 12);
         top.addView(title, tp);
-        if (Access.isDemo() && l.free) top.addView(UI.tv(this, "FREE", 11, true, UI.TEAL));
+        if (l.hasVideo && Progress.watched(this, l.id)) {
+            top.addView(UI.tv(this, "\u2713 Watched", 11, true, UI.TEAL));
+        } else if (l.hasVideo && Progress.percent(this, l.id) > 0) {
+            top.addView(UI.tv(this, Progress.percent(this, l.id) + "%", 11, true, UI.INDIGO));
+        } else if (Access.isDemo() && l.free) top.addView(UI.tv(this, "FREE", 11, true, UI.TEAL));
         else if (locked) top.addView(UI.tv(this, "\uD83D\uDD12", 15, false, UI.dim(this)));
         card.addView(top, UI.matchWrap());
         card.addView(UI.space(this, 12));
