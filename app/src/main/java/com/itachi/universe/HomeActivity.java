@@ -18,8 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class HomeActivity extends BaseActivity {
-    private final View[] tabs = new View[3];
-    private final TextView[] navItems = new TextView[3];
+    private final View[] tabs = new View[4];
+    private final TextView[] navItems = new TextView[4];
     private final List<LinearLayout> batchLists = new ArrayList<>();
     private final List<SwipeRefreshLayout> refreshers = new ArrayList<>();
 
@@ -33,19 +33,20 @@ public class HomeActivity extends BaseActivity {
         tabs[0] = refreshable(homeTab());
         tabs[1] = refreshable(libraryTab());
         tabs[2] = settingsTab();
+        tabs[3] = aboutTab();
         for (View t : tabs) content.addView(t, new FrameLayout.LayoutParams(-1, -1));
 
         // bottom navigation
         LinearLayout nav = UI.card(this, 24, 8, null, null);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
-        String[] icons = {"\u2302", "\u25A6", "\u2699"};
-        String[] labels = {"Home", "Library", "Settings"};
-        for (int i = 0; i < 3; i++) {
+        String[] icons = {"\u2302", "\u25A6", "\u2699", "\u2139"};
+        String[] labels = {"Home", "Library", "Settings", "About"};
+        for (int i = 0; i < tabs.length; i++) {
             final int idx = i;
             TextView t = UI.tv(this, icons[i] + "\n" + labels[i], 11, true, UI.dim(this));
             t.setGravity(Gravity.CENTER);
-            t.setPadding(UI.dp(this, 18), UI.dp(this, 8), UI.dp(this, 18), UI.dp(this, 8));
+            t.setPadding(UI.dp(this, 6), UI.dp(this, 8), UI.dp(this, 6), UI.dp(this, 8));
             t.setOnClickListener(v -> select(idx));
             navItems[i] = t;
             nav.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
@@ -61,7 +62,7 @@ public class HomeActivity extends BaseActivity {
     }
 
     private void select(int idx) {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < tabs.length; i++) {
             tabs[i].setVisibility(i == idx ? View.VISIBLE : View.GONE);
             boolean sel = i == idx;
             navItems[i].setTextColor(sel ? UI.text(this) : UI.dim(this));
@@ -188,6 +189,35 @@ public class HomeActivity extends BaseActivity {
         lp.bottomMargin = UI.dp(this, 12);
         card.setLayoutParams(lp);
         return card;
+    }
+
+    // ---------- About developer ----------
+    private LinearLayout aboutBox;
+
+    private View aboutTab() {
+        LinearLayout col = tabColumn();
+        col.addView(UI.tv(this, "About Developer", 28, true, UI.text(this)));
+        col.addView(UI.space(this, 20));
+        aboutBox = new LinearLayout(this);
+        aboutBox.setOrientation(LinearLayout.VERTICAL);
+        col.addView(aboutBox, UI.matchWrap());
+        loadAbout();
+        return tabScroll(col);
+    }
+
+    private void loadAbout() {
+        aboutBox.removeAllViews();
+        aboutBox.addView(new ProgressBar(this));
+        run(Api::about, new Api.Callback<com.google.gson.JsonObject>() {
+            @Override public void onSuccess(com.google.gson.JsonObject d) { AboutUi.render(HomeActivity.this, aboutBox, d); }
+            @Override public void onError(Api.ApiException e) {
+                aboutBox.removeAllViews();
+                LinearLayout c = UI.card(HomeActivity.this, 22, 16, null, null);
+                c.addView(UI.tv(HomeActivity.this, e.getMessage(), 14, false, UI.dim(HomeActivity.this)));
+                c.addView(UI.textButton(HomeActivity.this, "Try again", v -> loadAbout()));
+                aboutBox.addView(c, UI.matchWrap());
+            }
+        });
     }
 
     // ---------- Settings ----------

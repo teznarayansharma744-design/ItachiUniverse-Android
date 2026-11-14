@@ -67,7 +67,10 @@ public abstract class BaseActivity extends AppCompatActivity {
         });
     }
 
-    protected void toast(String m) { Toast.makeText(this, m, Toast.LENGTH_SHORT).show(); }
+    /** Same as run(), but callable from other classes. */
+    public <T> void runJob(Api.Job<T> job, Api.Callback<T> cb) { run(job, cb); }
+
+    public void toast(String m) { Toast.makeText(this, m, Toast.LENGTH_SHORT).show(); }
 
     protected void openAdminTelegram() {
         try {

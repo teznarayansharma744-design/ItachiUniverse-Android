@@ -34,6 +34,7 @@ public class AdminPanelActivity extends BaseActivity {
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.addView(UI.backHeader(this, "Owner", "Admin panel"), new LinearLayout.LayoutParams(0, -2, 1f));
         head.addView(UI.textButton(this, "Lectures", v -> startActivity(new Intent(this, AdminContentActivity.class))));
+        head.addView(UI.textButton(this, "About", v -> startActivity(new Intent(this, AdminAboutActivity.class))));
         head.addView(UI.textButton(this, "Log out", v -> {
             Api.adminLogout();
             startActivity(new Intent(this, AdminLoginActivity.class));

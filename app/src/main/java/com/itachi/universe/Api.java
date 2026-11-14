@@ -203,6 +203,21 @@ public final class Api {
         call("POST", "/admin/keys/" + key + "/device", body);
     }
 
+    /** The About Developer page. Public. */
+    public static JsonObject about() throws ApiException {
+        return call("GET", "/about", null, 30).getAsJsonObject();
+    }
+
+    /** Admin only: replaces the whole About Developer page and returns what the server kept. */
+    public static JsonObject saveAbout(JsonObject doc) throws ApiException {
+        return call("PUT", "/admin/about", doc).getAsJsonObject();
+    }
+
+    /** A short-lived link for MX Player, VLC or PlayIt. The server refuses YouTube videos. */
+    public static String externalLink(int lectureId) throws ApiException {
+        return call("GET", "/play/" + lectureId + "/external", null).getAsJsonObject().get("url").getAsString();
+    }
+
     /** Shop bot username and prices: {"bot": "...", "plans": [{name, days, price}]}. */
     public static JsonObject shopInfo() throws ApiException {
         return call("GET", "/shop/info", null, 30).getAsJsonObject();
