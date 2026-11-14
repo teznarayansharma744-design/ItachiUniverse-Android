@@ -213,7 +213,7 @@ public final class Api {
         return call("PUT", "/admin/about", doc).getAsJsonObject();
     }
 
-    /** A short-lived link for MX Player, VLC or PlayIt. The server refuses YouTube videos. */
+    /** A short-lived link for MX Player, VLC or PlayIt. YouTube URLs are resolved by the backend. */
     public static String externalLink(int lectureId) throws ApiException {
         return call("GET", "/play/" + lectureId + "/external", null).getAsJsonObject().get("url").getAsString();
     }
