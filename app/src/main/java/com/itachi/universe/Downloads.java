@@ -165,7 +165,7 @@ public final class Downloads {
                 int p = Math.max(0, Math.min(99, Math.round(percent)));
                 progress.put(id, p);
                 ping();
-            }, processId);
+            });
         } finally {
             ytProcesses.remove(id);
         }
