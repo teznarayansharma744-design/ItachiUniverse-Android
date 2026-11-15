@@ -1,6 +1,10 @@
 package com.itachi.universe;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
+import android.util.Base64;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -10,7 +14,9 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -20,6 +26,52 @@ import com.google.gson.JsonObject;
 public class AdminAboutActivity extends BaseActivity {
     private JsonObject doc = new JsonObject();
     private LinearLayout headerBox, list;
+
+    private final ActivityResultLauncher<String> picker =
+            registerForActivityResult(new ActivityResultContracts.GetContent(), this::onPhotoPicked);
+
+    /** Crops the picture to a square, shrinks it to 480 px, and stores it inside the About page as a data URI. */
+    private void onPhotoPicked(Uri uri) {
+        if (uri == null) return;
+        toast("Preparing photo...");
+        new Thread(() -> {
+            String out = null;
+            try {
+                Bitmap src;
+                if (android.os.Build.VERSION.SDK_INT >= 28) {
+                    src = android.graphics.ImageDecoder.decodeBitmap(
+                            android.graphics.ImageDecoder.createSource(getContentResolver(), uri),
+                            (dec, info, s) -> {
+                                dec.setAllocator(android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE);
+                                int big = Math.max(info.getSize().getWidth(), info.getSize().getHeight());
+                                if (big > 1200) dec.setTargetSampleSize(big / 1200 + 1);
+                            });
+                } else {
+                    try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                        BitmapFactory.Options o = new BitmapFactory.Options();
+                        o.inSampleSize = 2;
+                        src = BitmapFactory.decodeStream(in, null, o);
+                    }
+                }
+                if (src != null) {
+                    int side = Math.min(src.getWidth(), src.getHeight());
+                    Bitmap sq = Bitmap.createBitmap(src, (src.getWidth() - side) / 2, (src.getHeight() - side) / 2, side, side);
+                    Bitmap small = Bitmap.createScaledBitmap(sq, Math.min(480, side), Math.min(480, side), true);
+                    java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                    small.compress(Bitmap.CompressFormat.JPEG, 82, bo);
+                    out = "data:image/jpeg;base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP);
+                }
+            } catch (Exception ignored) {
+            }
+            final String result = out;
+            runOnUiThread(() -> {
+                if (!alive()) return;
+                if (result == null) { toast("Could not read that picture."); return; }
+                doc.addProperty("photo", result);
+                save("Photo saved.");
+            });
+        }).start();
+    }
 
     @Override
     protected void onCreate(Bundle b) {
@@ -86,9 +138,15 @@ public class AdminAboutActivity extends BaseActivity {
         headerBox.removeAllViews();
         LinearLayout head = UI.card(this, 22, 16, null, null);
         String name = Models.str(doc, "name"), tag = Models.str(doc, "tagline");
+        String photo = Models.str(doc, "photo");
+        if (!photo.isEmpty()) head.addView(AboutUi.photoView(this, photo, 84), UI.lp(UI.dp(this, 84), UI.dp(this, 84)));
         head.addView(UI.tv(this, name.isEmpty() ? "(no name)" : name, 18, true, text));
         head.addView(UI.tv(this, tag.isEmpty() ? "(no tagline)" : tag, 14, false, dim));
         head.addView(UI.textButton(this, "Edit name and tagline", v -> editHeader()));
+        LinearLayout photoRow = new LinearLayout(this);
+        photoRow.addView(UI.textButton(this, photo.isEmpty() ? "Add photo" : "Change photo", v -> picker.launch("image/*")));
+        if (!photo.isEmpty()) photoRow.addView(UI.textButton(this, "Remove photo", v -> { doc.addProperty("photo", ""); save("Photo removed."); }));
+        head.addView(photoRow);
         headerBox.addView(head, UI.matchWrap());
         headerBox.addView(UI.space(this, 12));
 
@@ -142,7 +200,7 @@ public class AdminAboutActivity extends BaseActivity {
     }
 
     private void confirmDelete(int idx) {
-        new AlertDialog.Builder(this).setTitle("Delete this section?")
+        new GlassDialog.Builder(this).setTitle("Delete this section?")
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Delete", (d, w) -> {
                     JsonArray out = new JsonArray();
@@ -169,7 +227,7 @@ public class AdminAboutActivity extends BaseActivity {
         box.addView(name, UI.matchWrap());
         box.addView(UI.space(this, 10));
         box.addView(tag, UI.matchWrap());
-        new AlertDialog.Builder(this).setTitle("Name and tagline").setView(box)
+        new GlassDialog.Builder(this).setTitle("Name and tagline").setView(box)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save", (d, w) -> {
                     doc.addProperty("name", name.getText().toString().trim());
@@ -212,7 +270,7 @@ public class AdminAboutActivity extends BaseActivity {
         android.widget.ScrollView sv = new android.widget.ScrollView(this);
         sv.addView(box);
 
-        new AlertDialog.Builder(this).setTitle(idx >= 0 ? "Edit section" : "New section").setView(sv)
+        new GlassDialog.Builder(this).setTitle(idx >= 0 ? "Edit section" : "New section").setView(sv)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save", (d, w) -> {
                     JsonArray parsed = new JsonArray();

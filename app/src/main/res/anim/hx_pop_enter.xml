@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@interpolator/hx_smooth" android:shareInterpolator="true">
+    <translate android:fromXDelta="-24%p" android:toXDelta="0" android:duration="400" />
+    <alpha android:fromAlpha="0.55" android:toAlpha="1" android:duration="300" />
+</set>

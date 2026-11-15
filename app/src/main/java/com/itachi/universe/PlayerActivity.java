@@ -12,7 +12,10 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import android.content.res.Configuration;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -41,6 +44,11 @@ public class PlayerActivity extends BaseActivity {
     private YouTubePlayerView yt;
     private YtControls ytControls;
     private boolean fullscreen = false;
+    private boolean hasPdf;
+    private PdfPanel pdfPanel;
+    private final ActivityResultLauncher<String> pdfSaver =
+            registerForActivityResult(new ActivityResultContracts.CreateDocument("application/pdf"),
+                    uri -> { if (pdfPanel != null) pdfPanel.saveTo(uri); });
     private int lectureId;
     private String title, subtitle;
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -49,6 +57,7 @@ public class PlayerActivity extends BaseActivity {
     private float lastSavedAt = -100f;
 
     @Override protected boolean secure() { return true; }
+    @Override protected int maxContentDp() { return 0; }
 
     /** Saves the position every few seconds while an ExoPlayer video plays. */
     private final Runnable saver = new Runnable() {
@@ -97,6 +106,7 @@ public class PlayerActivity extends BaseActivity {
         subtitle = getIntent().getStringExtra("subtitle");
         if (title == null) title = "";
         if (subtitle == null) subtitle = "";
+        hasPdf = getIntent().getBooleanExtra("pdf", false);
 
         rootCol = new LinearLayout(this);
         rootCol.setOrientation(LinearLayout.VERTICAL);
@@ -112,6 +122,14 @@ public class PlayerActivity extends BaseActivity {
         info.addView(UI.space(this, 6));
         info.addView(UI.tv(this, title, 21, true, UI.text(this)));
         rootCol.addView(info, UI.matchWrap());
+
+        if (hasPdf) {
+            pdfPanel = new PdfPanel(this, lectureId, title, true);
+            pdfPanel.setOnDownload(() -> pdfSaver.launch(pdfPanel.fileName()));
+            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-1, 0, 1f);
+            pp.topMargin = UI.dp(this, 8);
+            rootCol.addView(pdfPanel, pp);
+        }
 
         setScreen(rootCol);
         applyLayout();
@@ -230,19 +248,29 @@ public class PlayerActivity extends BaseActivity {
         applyLayout();
     }
 
+    private boolean landscape() {
+        return getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+    }
+
+    @Override public void onConfigurationChanged(Configuration c) {
+        super.onConfigurationChanged(c);
+        applyLayout();  // phone rotated or window resized: refit everything
+    }
+
+    /** Sizes the video to whatever screen this is: 16:9 across the width in portrait (never taller
+     *  than 45% of the screen, so the PDF keeps room), full screen in landscape. */
     private void applyLayout() {
-        info.setVisibility(fullscreen ? View.GONE : View.VISIBLE);
-        int h = fullscreen ? ViewGroup.LayoutParams.MATCH_PARENT
-                : getResources().getDisplayMetrics().widthPixels * 9 / 16;
-        // In portrait the width is the short side; in landscape we fill the screen anyway.
-        if (!fullscreen) h = Math.min(getResources().getDisplayMetrics().widthPixels,
-                getResources().getDisplayMetrics().heightPixels) * 9 / 16;
+        boolean full = fullscreen || landscape();
+        info.setVisibility(full ? View.GONE : View.VISIBLE);
+        if (pdfPanel != null) pdfPanel.setVisibility(full ? View.GONE : View.VISIBLE);
+        int w = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
+        int h = full ? ViewGroup.LayoutParams.MATCH_PARENT : Math.min(w * 9 / 16, (int) (sh * 0.45f));
         rootCol.removeView(videoHolder);
         rootCol.addView(videoHolder, 0, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, h));
-        holderBackground(fullscreen);
+        holderBackground(full);
 
         WindowInsetsControllerCompat c = WindowCompat.getInsetsController(getWindow(), rootCol);
-        if (fullscreen) {
+        if (full) {
             c.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             c.hide(WindowInsetsCompat.Type.systemBars());
         } else {
@@ -268,6 +296,7 @@ public class PlayerActivity extends BaseActivity {
     }
 
     @Override protected void onDestroy() {
+        if (pdfPanel != null) pdfPanel.release();
         handler.removeCallbacksAndMessages(null);
         saveExoProgress();
         if (player != null) { player.release(); player = null; }

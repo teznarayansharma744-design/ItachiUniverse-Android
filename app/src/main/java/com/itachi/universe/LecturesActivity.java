@@ -128,6 +128,7 @@ public class LecturesActivity extends BaseActivity {
         i.putExtra("id", l.id);
         i.putExtra("title", l.title);
         i.putExtra("subtitle", subject.name + " / " + unit.name);
+        i.putExtra("pdf", l.hasPdf);
         startActivity(i);
     }
 

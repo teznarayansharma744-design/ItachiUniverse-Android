@@ -53,8 +53,16 @@ public final class UI {
     }
 
     // ---------- sizes ----------
+    /** How much bigger or smaller than a normal phone (390dp wide) this screen is. Uses the short
+     *  side, so it stays the same when the phone rotates. Small phones shrink a little, tablets grow. */
+    public static float scale(Context c) {
+        int sw = c.getResources().getConfiguration().smallestScreenWidthDp;
+        if (sw <= 0) return 1f;
+        return Math.max(0.85f, Math.min(1.3f, sw / 390f));
+    }
+
     public static int dp(Context c, float v) {
-        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, c.getResources().getDisplayMetrics()));
+        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v * scale(c), c.getResources().getDisplayMetrics()));
     }
 
     public static LinearLayout.LayoutParams lp(int w, int h) { return new LinearLayout.LayoutParams(w, h); }
@@ -75,7 +83,7 @@ public final class UI {
     public static TextView tv(Context c, String s, float sp, boolean bold, int color) {
         TextView t = new TextView(c);
         t.setText(s);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp * scale(c));
         t.setTextColor(color);
         if (bold) t.setTypeface(Typeface.DEFAULT_BOLD);
         return t;
@@ -108,6 +116,7 @@ public final class UI {
         if (click != null) {
             l.setClickable(true);
             l.setOnClickListener(click);
+            Motion.press(l);
         }
         return l;
     }
@@ -131,6 +140,7 @@ public final class UI {
         t.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF),
                 box(dark(c) ? 0x18FFFFFF : 0x18000000, dp(c, 14), border(c), 1), null));
         t.setOnClickListener(click);
+        Motion.press(t);
         return t;
     }
 
@@ -142,6 +152,7 @@ public final class UI {
         g.setCornerRadius(dp(c, 18));
         t.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), g, null));
         t.setOnClickListener(click);
+        Motion.press(t);
         t.setLayoutParams(lp(ViewGroup.LayoutParams.MATCH_PARENT, dp(c, 56)));
         return t;
     }

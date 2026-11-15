@@ -6,7 +6,6 @@ import android.net.Uri;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ScrollView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -22,6 +21,19 @@ public abstract class BaseActivity extends AppCompatActivity {
 
     protected UI.GlassBackground bg;
     protected FrameLayout holder;
+    private int insL, insT, insR, insB;
+
+    /** Widest the content may be, in dp. On tablets and landscape it is centred instead of stretched. 0 = no limit. */
+    protected int maxContentDp() { return 640; }
+
+    private void fitHolder() {
+        if (holder == null) return;
+        int w = bg.getWidth(), cap = UI.dp(this, maxContentDp());
+        int extra = maxContentDp() > 0 && w > cap ? (w - cap) / 2 : 0;
+        int l = insL + extra, r = insR + extra;
+        if (holder.getPaddingLeft() != l || holder.getPaddingRight() != r || holder.getPaddingTop() != insT || holder.getPaddingBottom() != insB)
+            holder.setPadding(l, insT, r, insB);
+    }
 
     /** Shows [content] on the glass background, below the status bar and above the nav bar. */
     protected void setScreen(View content) {
@@ -37,9 +49,11 @@ public abstract class BaseActivity extends AppCompatActivity {
         setContentView(bg);
         ViewCompat.setOnApplyWindowInsetsListener(bg, (v, insets) -> {
             Insets i = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.ime());
-            holder.setPadding(i.left, i.top, i.right, i.bottom);
+            insL = i.left; insT = i.top; insR = i.right; insB = i.bottom;
+            fitHolder();
             return insets;
         });
+        bg.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> { if (r - l != or - ol) fitHolder(); });
         WindowInsetsControllerCompat c = WindowCompat.getInsetsController(getWindow(), bg);
         c.setAppearanceLightStatusBars(!UI.dark(this));
         c.setAppearanceLightNavigationBars(!UI.dark(this));
@@ -58,6 +72,7 @@ public abstract class BaseActivity extends AppCompatActivity {
         sv.setFillViewport(true);
         sv.setVerticalScrollBarEnabled(false);
         sv.addView(child, new FrameLayout.LayoutParams(-1, -2));
+        if (child instanceof android.view.ViewGroup) Motion.riseOnFirstDraw((android.view.ViewGroup) child);
         return sv;
     }
 
@@ -77,7 +92,7 @@ public abstract class BaseActivity extends AppCompatActivity {
     /** Same as run(), but callable from other classes. */
     public <T> void runJob(Api.Job<T> job, Api.Callback<T> cb) { run(job, cb); }
 
-    public void toast(String m) { Toast.makeText(this, m, Toast.LENGTH_SHORT).show(); }
+    public void toast(String m) { GlassToast.show(this, m); }
 
     protected void openAdminTelegram() {
         try {
@@ -87,19 +102,10 @@ public abstract class BaseActivity extends AppCompatActivity {
         }
     }
 
-    /** Opens the shop bot in Telegram with this phone's Device ID, so it can show the price and
-     *  start the payment straight away. Falls back to the admin chat if the shop is not ready. */
+    /** Buying goes through the admin's Telegram chat. The Device ID is copied first, so it only needs pasting. */
     protected void openShopBot() {
-        final String device = DeviceId.get(this);
-        openBot(SHOP_BOT, device);  // opens straight away; no waiting for the server
-    }
-
-    private void openBot(String bot, String device) {
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/" + bot + "?start=" + device)));
-        } catch (ActivityNotFoundException e) {
-            toast("Telegram is not installed. Search @" + bot + " in your browser.");
-        }
+        copyToClipboard(DeviceId.get(this), "Device ID copied. Paste it to the admin.");
+        openAdminTelegram();
     }
 
     protected void copyToClipboard(String text, String done) {

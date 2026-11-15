@@ -11,7 +11,6 @@ import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import java.util.ArrayList;
@@ -88,6 +87,7 @@ public class HomeActivity extends BaseActivity {
         ScrollView sv = new ScrollView(this);
         sv.setVerticalScrollBarEnabled(false);
         sv.addView(col, new FrameLayout.LayoutParams(-1, -2));
+        Motion.riseOnFirstDraw(col);
         return sv;
     }
 
@@ -315,7 +315,7 @@ public class HomeActivity extends BaseActivity {
     }
 
     private void confirmLogout() {
-        new AlertDialog.Builder(this)
+        new GlassDialog.Builder(this)
                 .setTitle("Log out?")
                 .setMessage("This removes premium from this phone. Your key stays valid, so you can enter it again on this device.")
                 .setNegativeButton("Cancel", null)

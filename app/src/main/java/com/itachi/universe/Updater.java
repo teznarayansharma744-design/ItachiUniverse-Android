@@ -11,9 +11,7 @@ import android.view.Gravity;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.FileProvider;
 
 import com.google.gson.JsonArray;
@@ -95,15 +93,15 @@ public final class Updater {
     public static void check(Activity a, boolean manual) {
         if (!manual && checkedThisLaunch) return;
         checkedThisLaunch = true;
-        if (manual) Toast.makeText(a, "Checking for updates...", Toast.LENGTH_SHORT).show();
+        if (manual) GlassToast.show(a, "Checking for updates...");
         Api.async(Updater::fetchLatest, new Api.Callback<Info>() {
             @Override public void onSuccess(Info i) {
                 if (!alive(a)) return;
                 if (i.code > BuildConfig.VERSION_CODE) showUpdate(a, i);
-                else if (manual) Toast.makeText(a, "You are on the latest version.", Toast.LENGTH_SHORT).show();
+                else if (manual) GlassToast.show(a, "You are on the latest version.");
             }
             @Override public void onError(Api.ApiException e) {
-                if (manual && alive(a)) Toast.makeText(a, e.getMessage(), Toast.LENGTH_LONG).show();
+                if (manual && alive(a)) GlassToast.show(a, e.getMessage());
             }
         });
     }
@@ -111,7 +109,7 @@ public final class Updater {
     private static void showUpdate(Activity a, Info i) {
         String msg = "Version " + i.name + " is ready to install.";
         if (!i.notes.isEmpty()) msg += "\n\n" + i.notes;
-        new AlertDialog.Builder(a)
+        new GlassDialog.Builder(a)
                 .setTitle("Update available")
                 .setMessage(msg)
                 .setPositiveButton("Update", (d, w) -> download(a, i))
@@ -121,7 +119,7 @@ public final class Updater {
 
     private static void download(Activity a, Info info) {
         if (Build.VERSION.SDK_INT >= 26 && !a.getPackageManager().canRequestPackageInstalls()) {
-            new AlertDialog.Builder(a)
+            new GlassDialog.Builder(a)
                     .setTitle("Allow installing updates")
                     .setMessage("Android needs your permission once. Tap Open settings, turn on \"Allow from this source\", "
                             + "then come back and tap Update again.")
@@ -138,6 +136,7 @@ public final class Updater {
         box.setPadding(pad, pad, pad, UI.dp(a, 8));
         TextView label = new TextView(a);
         label.setText("Downloading 0%");
+        label.setTextColor(UI.text(a));
         ProgressBar bar = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
         bar.setMax(100);
         box.addView(label);
@@ -145,7 +144,7 @@ public final class Updater {
         label.setGravity(Gravity.START);
 
         AtomicBoolean cancel = new AtomicBoolean(false);
-        AlertDialog dialog = new AlertDialog.Builder(a)
+        GlassDialog dialog = new GlassDialog.Builder(a)
                 .setTitle("Updating")
                 .setView(box)
                 .setCancelable(false)
@@ -185,7 +184,7 @@ public final class Updater {
                 main.post(() -> {
                     dialog.dismiss();
                     if (alive(a) && !cancelled) {
-                        Toast.makeText(a, "Download failed. Check your internet and try again.", Toast.LENGTH_LONG).show();
+                        GlassToast.show(a, "Download failed. Check your internet and try again.");
                     }
                 });
             }
@@ -209,7 +208,7 @@ public final class Updater {
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
             a.startActivity(i);
         } catch (Exception e) {
-            Toast.makeText(a, "Could not open the installer.", Toast.LENGTH_LONG).show();
+            GlassToast.show(a, "Could not open the installer.");
         }
     }
 }

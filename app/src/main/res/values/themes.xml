@@ -4,6 +4,24 @@
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@style/HxWindowAnim</item>
         <item name="colorPrimary">#5B5BFF</item>
+    </style>
+
+    <!-- Screens slide in with a soft deceleration while the old one drifts back, like HyperOS / ColorOS. -->
+    <style name="HxWindowAnim" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/hx_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/hx_exit</item>
+        <item name="android:activityCloseEnterAnimation">@anim/hx_pop_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/hx_pop_exit</item>
+    </style>
+
+    <style name="GlassDialogTheme" parent="@android:style/Theme.DeviceDefault.Dialog.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">true</item>
     </style>
 </resources>

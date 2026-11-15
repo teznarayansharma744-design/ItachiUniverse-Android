@@ -9,11 +9,9 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
 
 import java.util.List;
 
@@ -143,7 +141,7 @@ public class AdminPanelActivity extends BaseActivity {
             }
             @Override public void onError(Api.ApiException e) {}
         });
-        new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Home notice").setView(box)
+        new GlassDialog.Builder(this).setTitle("Home notice").setView(box)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save", (d, w) -> run(
                         () -> Api.saveAnnounce(text.getText().toString().trim(), link.getText().toString().trim()),
@@ -233,30 +231,25 @@ public class AdminPanelActivity extends BaseActivity {
     }
 
     private void showMenu(View anchor, Models.AdminKey k) {
-        PopupMenu m = new PopupMenu(this, anchor);
-        m.getMenu().add(0, 1, 0, "Copy key");
-        m.getMenu().add(0, 2, 1, "Extend 30 days");
-        m.getMenu().add(0, 3, 2, "Change device / log out phone");
-        if ("revoked".equals(k.status)) m.getMenu().add(0, 4, 3, "Restore");
-        else m.getMenu().add(0, 5, 3, "Revoke");
-        m.getMenu().add(0, 6, 4, "Delete");
-        m.setOnMenuItemClickListener(item -> {
-            switch (item.getItemId()) {
-                case 1: copyToClipboard(k.key, "Key copied."); break;
-                case 2: change(() -> { Api.extendKey(k.key, 30); return null; }, "Extended by 30 days."); break;
-                case 3: askText("Change device", "New Device ID", k.deviceId, id ->
+        final boolean revoked = "revoked".equals(k.status);
+        String[] items = {"Copy key", "Extend 30 days", "Change device / log out phone", revoked ? "Restore" : "Revoke", "Delete"};
+        GlassDialog.menu(this, "Key options", items, pick -> {
+            switch (pick) {
+                case 0: copyToClipboard(k.key, "Key copied."); break;
+                case 1: change(() -> { Api.extendKey(k.key, 30); return null; }, "Extended by 30 days."); break;
+                case 2: askText("Change device", "New Device ID", k.deviceId, id ->
                         change(() -> { Api.changeKeyDevice(k.key, id); return null; }, "Device changed.")); break;
-                case 4: change(() -> { Api.restoreKey(k.key); return null; }, "Key restored."); break;
-                case 5: change(() -> { Api.revokeKey(k.key); return null; }, "Key revoked."); break;
-                case 6: new AlertDialog.Builder(this).setTitle("Delete this key?")
+                case 3:
+                    if (revoked) change(() -> { Api.restoreKey(k.key); return null; }, "Key restored.");
+                    else change(() -> { Api.revokeKey(k.key); return null; }, "Key revoked.");
+                    break;
+                case 4: new GlassDialog.Builder(this).setTitle("Delete this key?")
                         .setMessage("The student will lose access.")
                         .setNegativeButton("Cancel", null)
                         .setPositiveButton("Delete", (d, w) -> change(() -> { Api.deleteKey(k.key); return null; }, "Key deleted."))
                         .show(); break;
             }
-            return true;
         });
-        m.show();
     }
 
     private void change(Api.Job<Object> job, String done) {
@@ -276,7 +269,7 @@ public class AdminPanelActivity extends BaseActivity {
         LinearLayout wrap = new LinearLayout(this);
         wrap.setPadding(UI.dp(this, 20), UI.dp(this, 8), UI.dp(this, 20), 0);
         wrap.addView(e, UI.matchWrap());
-        new AlertDialog.Builder(this).setTitle(title).setView(wrap)
+        new GlassDialog.Builder(this).setTitle(title).setView(wrap)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save", (d, w) -> {
                     String v = e.getText().toString().trim();
@@ -316,7 +309,7 @@ public class AdminPanelActivity extends BaseActivity {
         EditText note = UI.input(this, "Rahul, batch 1");
         box.addView(note, UI.matchWrap());
 
-        new AlertDialog.Builder(this).setTitle("New key").setView(box)
+        new GlassDialog.Builder(this).setTitle("New key").setView(box)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Generate key", (d, w) -> {
                     String dev = device.getText().toString().trim();
@@ -336,7 +329,7 @@ public class AdminPanelActivity extends BaseActivity {
     private void showCreated(Models.AdminKey k) {
         String msg = "Your Itachi Universe premium key:\n" + k.key + "\n\nValid until " + date(k.expiresAt)
                 + ". It works only on your device.";
-        new AlertDialog.Builder(this).setTitle("Key created")
+        new GlassDialog.Builder(this).setTitle("Key created")
                 .setMessage(k.key + "\n\nValid until " + date(k.expiresAt))
                 .setNeutralButton("Copy key", (d, w) -> copyToClipboard(k.key, "Key copied."))
                 .setNegativeButton("Copy message", (d, w) -> copyToClipboard(msg, "Message copied. Paste it in Telegram or WhatsApp."))

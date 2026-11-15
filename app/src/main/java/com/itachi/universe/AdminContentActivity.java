@@ -6,13 +6,11 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.Switch;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
-import androidx.appcompat.app.AlertDialog;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -186,17 +184,12 @@ public class AdminContentActivity extends BaseActivity {
         TextView more = UI.tv(this, "\u22EE", 22, true, UI.text(this));
         more.setPadding(UI.dp(this, 12), 0, UI.dp(this, 4), 0);
         more.setOnClickListener(v -> {
-            PopupMenu pm = new PopupMenu(this, v);
-            if (level() < 3) pm.getMenu().add(0, 1, 0, "Rename");
-            else pm.getMenu().add(0, 3, 0, "Edit");
-            pm.getMenu().add(0, 2, 1, "Delete");
-            pm.setOnMenuItemClickListener(item -> {
-                if (item.getItemId() == 1) onRename(m);
-                else if (item.getItemId() == 2) onDelete(m);
+            final boolean sub = level() < 3;
+            GlassDialog.menu(this, null, new String[]{sub ? "Rename" : "Edit", "Delete"}, i -> {
+                if (i == 1) onDelete(m);
+                else if (sub) onRename(m);
                 else showLectureDialog(m);
-                return true;
             });
-            pm.show();
         });
         card.addView(more);
 
@@ -222,7 +215,7 @@ public class AdminContentActivity extends BaseActivity {
         LinearLayout wrap = new LinearLayout(this);
         wrap.setPadding(UI.dp(this, 20), UI.dp(this, 8), UI.dp(this, 20), 0);
         wrap.addView(e, UI.matchWrap());
-        new AlertDialog.Builder(this).setTitle(title).setView(wrap)
+        new GlassDialog.Builder(this).setTitle(title).setView(wrap)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save", (d, w) -> {
                     String v = e.getText().toString().trim();
@@ -245,7 +238,7 @@ public class AdminContentActivity extends BaseActivity {
 
     private void onDelete(JsonObject m) {
         int lvl = level();
-        new AlertDialog.Builder(this).setTitle("Delete " + WORDS[lvl] + "?")
+        new GlassDialog.Builder(this).setTitle("Delete " + WORDS[lvl] + "?")
                 .setMessage("Everything inside it is deleted too.")
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Delete", (d, w) ->
@@ -282,7 +275,7 @@ public class AdminContentActivity extends BaseActivity {
 
         final Integer id = lectureId;
         final Integer unitId = level() == 3 ? path.get(2) : null;
-        new AlertDialog.Builder(this).setTitle(lecture == null ? "New lecture" : "Edit lecture").setView(box)
+        new GlassDialog.Builder(this).setTitle(lecture == null ? "New lecture" : "Edit lecture").setView(box)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save", (d, w) -> {
                     String t = title.getText().toString().trim();
