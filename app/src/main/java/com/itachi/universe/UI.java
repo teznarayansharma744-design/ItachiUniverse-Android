@@ -7,6 +7,7 @@ import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
@@ -38,7 +39,7 @@ public final class UI {
         return (c.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 == Configuration.UI_MODE_NIGHT_YES;
     }
-    public static int bg(Context c) { return dark(c) ? 0xFF0B1020 : 0xFFEEF1FB; }
+    public static int bg(Context c) { return dark(c) ? 0xFF0A0E22 : 0xFFE9EDFA; }
     public static int text(Context c) { return dark(c) ? Color.WHITE : 0xFF121528; }
     public static int dim(Context c) { return dark(c) ? 0xB8FFFFFF : 0xFF4A4F6A; }
     public static int fill(Context c) { return dark(c) ? 0x14FFFFFF : 0x8CFFFFFF; }
@@ -97,28 +98,34 @@ public final class UI {
         return g;
     }
 
-    /** Glass card (vertical). gradient = null for the plain translucent fill. */
+    /** Glass card (vertical). A gradient only lends its first color as a tint; null = clear glass. */
     public static LinearLayout card(Context c, float radiusDp, int padDp, int[] gradient, View.OnClickListener click) {
         LinearLayout l = new LinearLayout(c);
         l.setOrientation(LinearLayout.VERTICAL);
         l.setPadding(dp(c, padDp), dp(c, padDp), dp(c, padDp), dp(c, padDp));
-        GradientDrawable g;
-        if (gradient != null) {
-            g = new GradientDrawable(GradientDrawable.Orientation.TL_BR, gradient);
-        } else {
-            g = new GradientDrawable();
-            g.setColor(fill(c));
-        }
-        g.setCornerRadius(dp(c, radiusDp));
-        g.setStroke(Math.max(1, dp(c, 1)), border(c));
-        int ripple = dark(c) ? 0x33FFFFFF : 0x22000000;
-        l.setBackground(new RippleDrawable(ColorStateList.valueOf(ripple), g, null));
+        GlassDrawable g = new GlassDrawable(c, dp(c, radiusDp), gradient != null ? gradient[0] : 0, 1f);
+        l.setBackground(g);
         if (click != null) {
+            l.setForeground(rippleOver(c, dp(c, radiusDp)));
             l.setClickable(true);
             l.setOnClickListener(click);
             Motion.press(l);
         }
         return l;
+    }
+
+    /** A soft press ripple clipped to a rounded rectangle, drawn above the glass. */
+    public static android.graphics.drawable.Drawable rippleOver(Context c, float radiusPx) {
+        GradientDrawable mask = new GradientDrawable();
+        mask.setColor(Color.BLACK);
+        mask.setCornerRadius(radiusPx);
+        return new RippleDrawable(ColorStateList.valueOf(dark(c) ? 0x33FFFFFF : 0x22000000), null, mask);
+    }
+
+    /** Glass background for small controls. */
+    public static void glassBg(View v, float radiusDp, float strength) {
+        Context c = v.getContext();
+        v.setBackground(new GlassDrawable(c, dp(c, radiusDp), 0, strength));
     }
 
     /** Rounded square with an emoji/glyph inside. */
@@ -136,9 +143,9 @@ public final class UI {
     public static TextView pillButton(Context c, String label, View.OnClickListener click) {
         TextView t = tv(c, label, 13, true, text(c));
         t.setGravity(Gravity.CENTER);
-        t.setPadding(dp(c, 12), dp(c, 11), dp(c, 12), dp(c, 11));
-        t.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF),
-                box(dark(c) ? 0x18FFFFFF : 0x18000000, dp(c, 14), border(c), 1), null));
+        t.setPadding(dp(c, 12), dp(c, 12), dp(c, 12), dp(c, 12));
+        t.setBackground(new GlassDrawable(c, dp(c, 15), 0, 1.5f));
+        t.setForeground(rippleOver(c, dp(c, 15)));
         t.setOnClickListener(click);
         Motion.press(t);
         return t;
@@ -173,7 +180,7 @@ public final class UI {
         e.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         e.setInputType(InputType.TYPE_CLASS_TEXT);
         e.setPadding(dp(c, 16), dp(c, 14), dp(c, 16), dp(c, 14));
-        e.setBackground(box(fill(c), dp(c, 16), border(c), 1));
+        e.setBackground(new GlassDrawable(c, dp(c, 16), 0, 1.2f));
         return e;
     }
 
@@ -214,33 +221,32 @@ public final class UI {
     }
 
     // ---------- background ----------
-    /** Soft colored glow behind everything, drawn with plain radial gradients. */
+    /** The calm midnight (or soft daylight) backdrop: one glow at the top over a vertical gradient. No shapes. */
     public static class GlassBackground extends FrameLayout {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint base = new Paint();
+        private final Paint glow = new Paint();
 
         public GlassBackground(Context c) {
             super(c);
             setWillNotDraw(false);
         }
 
-        private void glow(Canvas cv, float cx, float cy, float r, int color, int alphaPct) {
-            int a = Math.round(255 * alphaPct / 100f);
-            int c0 = (color & 0x00FFFFFF) | (a << 24);
-            int c1 = color & 0x00FFFFFF;
-            paint.setShader(new RadialGradient(cx, cy, r, c0, c1, Shader.TileMode.CLAMP));
-            cv.drawCircle(cx, cy, r, paint);
-            paint.setShader(null);
+        @Override
+        protected void onSizeChanged(int w, int h, int ow, int oh) {
+            super.onSizeChanged(w, h, ow, oh);
+            boolean d = dark(getContext());
+            base.setShader(new LinearGradient(0, 0, 0, h,
+                    d ? new int[]{0xFF0E1430, 0xFF0A0E22, 0xFF070A18} : new int[]{0xFFF1F3FF, 0xFFE9EDFA, 0xFFDDE2F4},
+                    new float[]{0f, 0.55f, 1f}, Shader.TileMode.CLAMP));
+            float r = Math.max(w, 1) * 0.95f;
+            glow.setShader(new RadialGradient(w / 2f, -0.04f * h, r,
+                    d ? 0xFF2B3A8C : 0xFFC4CFFF, d ? 0x002B3A8C : 0x00C4CFFF, Shader.TileMode.CLAMP));
         }
 
         @Override
         protected void onDraw(Canvas cv) {
-            Context c = getContext();
-            boolean d = dark(c);
-            cv.drawColor(bg(c));
-            float w = getWidth(), h = getHeight(), u = getResources().getDisplayMetrics().density;
-            glow(cv, 90 * u, 110 * u, 230 * u, d ? 0xFF5B5BFF : 0xFF8E8EFF, 50);
-            glow(cv, w - 40 * u, 440 * u, 220 * u, d ? 0xFF19C3B1 : 0xFF6FE0D2, 38);
-            glow(cv, 100 * u, h - 70 * u, 220 * u, d ? 0xFFFF6AA2 : 0xFFFFA3C6, 34);
+            cv.drawPaint(base);
+            cv.drawPaint(glow);
         }
     }
 }

@@ -21,6 +21,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
@@ -152,6 +153,11 @@ public class PlayerActivity extends BaseActivity {
         ytControls = null;
         videoHolder.removeAllViews();
         videoHolder.addView(new ProgressBar(this), new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
+        if (Downloads.has(this, lectureId)) {  // saved on this phone: plays with no internet
+            videoHolder.removeAllViews();
+            startExo(new Models.PlaySource(android.net.Uri.fromFile(Downloads.file(this, lectureId)).toString(), java.util.Collections.emptyMap()));
+            return;
+        }
         run(() -> Api.playSource(lectureId, "video"), new Api.Callback<Models.PlaySource>() {
             @Override public void onSuccess(Models.PlaySource src) {
                 videoHolder.removeAllViews();
@@ -181,7 +187,7 @@ public class PlayerActivity extends BaseActivity {
                 .setAllowCrossProtocolRedirects(true)
                 .setDefaultRequestProperties(headers);
         player = new ExoPlayer.Builder(this)
-                .setMediaSourceFactory(new DefaultMediaSourceFactory(http))
+                .setMediaSourceFactory(new DefaultMediaSourceFactory(new DefaultDataSource.Factory(this, http)))
                 .build();
         PlayerView pv = new PlayerView(this);
         pv.setPlayer(player);

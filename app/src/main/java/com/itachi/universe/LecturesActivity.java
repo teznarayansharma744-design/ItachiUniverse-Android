@@ -8,6 +8,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 
 /** Every lecture of one unit as a card, with "Play video" and "View PDF" buttons. */
@@ -18,6 +20,31 @@ public class LecturesActivity extends BaseActivity {
     private Models.UnitItem unit;
     private int filter = ALL;
     private LinearLayout tabsRow, list;
+    private final Map<Integer, TextView> dlButtons = new HashMap<>();
+    private final Runnable dlRefresh = () -> { if (alive()) for (Map.Entry<Integer, TextView> e : dlButtons.entrySet()) styleDl(e.getKey(), e.getValue()); };
+
+    @Override protected void onStart() { super.onStart(); Downloads.addListener(dlRefresh); }
+    @Override protected void onStop() { super.onStop(); Downloads.removeListener(dlRefresh); }
+
+    private void styleDl(int id, TextView b) {
+        int p = Downloads.progress(id);
+        if (p >= 0) b.setText("Downloading " + p + "%  \u00B7  tap to cancel");
+        else if (Downloads.has(this, id)) b.setText("\u2713  Saved offline  \u00B7  tap to remove");
+        else b.setText("\u2B07  Download");
+    }
+
+    private void onDlTap(Models.Lecture l) {
+        if (Downloads.progress(l.id) >= 0) { Downloads.cancel(l.id); return; }
+        if (Downloads.has(this, l.id)) {
+            new GlassDialog.Builder(this).setTitle("Remove this download?")
+                    .setMessage("You can download it again any time.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Remove", (d, w) -> Downloads.delete(this, l.id)).show();
+            return;
+        }
+        toast("Download started. It is saved privately inside the app.");
+        Downloads.start(this, l.id, l.title, subject.name + " / " + unit.name, msg -> { if (alive()) toast(msg); });
+    }
 
     @Override
     protected void onCreate(Bundle b) {
@@ -63,12 +90,13 @@ public class LecturesActivity extends BaseActivity {
             TextView t = UI.tv(this, names[i] + " (" + counts[i] + ")", 14, sel, sel ? UI.text(this) : UI.dim(this));
             t.setGravity(Gravity.CENTER);
             t.setPadding(0, UI.dp(this, 10), 0, UI.dp(this, 10));
-            if (sel) t.setBackground(UI.box(UI.dark(this) ? 0x28FFFFFF : 0x28000000, UI.dp(this, 12), 0, 0));
+            if (sel) UI.glassBg(t, 12, 2.2f);
             t.setOnClickListener(v -> { filter = f; render(); });
             tabsRow.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         }
 
         list.removeAllViews();
+        dlButtons.clear();
         List<Models.Lecture> items = new ArrayList<>();
         for (Models.Lecture l : unit.lectures) {
             if (filter == ALL || (filter == VIDEO && l.hasVideo) || (filter == PDF && l.hasPdf)) items.add(l);
@@ -116,6 +144,14 @@ public class LecturesActivity extends BaseActivity {
                     new LinearLayout.LayoutParams(0, -2, 1f));
         }
         card.addView(actions, UI.matchWrap());
+        if (l.hasVideo) {
+            TextView dl = UI.pillButton(this, "", v -> { if (locked) Access.showPremiumRequired(this); else onDlTap(l); });
+            styleDl(l.id, dl);
+            dlButtons.put(l.id, dl);
+            LinearLayout.LayoutParams dp = UI.matchWrap();
+            dp.topMargin = UI.dp(this, 10);
+            card.addView(dl, dp);
+        }
 
         LinearLayout.LayoutParams lp = UI.matchWrap();
         lp.bottomMargin = UI.dp(this, 12);

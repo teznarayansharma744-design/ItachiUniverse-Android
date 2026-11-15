@@ -65,7 +65,7 @@ public class HomeActivity extends BaseActivity {
             tabs[i].setVisibility(i == idx ? View.VISIBLE : View.GONE);
             boolean sel = i == idx;
             navItems[i].setTextColor(sel ? UI.text(this) : UI.dim(this));
-            navItems[i].setBackground(sel ? UI.box(UI.dark(this) ? 0x1EFFFFFF : 0x1E000000, UI.dp(this, 16), 0, 0) : null);
+            if (sel) UI.glassBg(navItems[i], 18, 2.2f); else navItems[i].setBackground(null);
         }
     }
 
@@ -281,6 +281,18 @@ public class HomeActivity extends BaseActivity {
         sw.setOnCheckedChangeListener((v, checked) -> { if (checked != UI.dark(this)) UI.toggleTheme(this); });
         dark.addView(sw);
         col.addView(dark, UI.matchWrap());
+        col.addView(UI.space(this, 12));
+
+        LinearLayout dl = UI.card(this, 22, 18, null, v -> startActivity(new Intent(this, DownloadsActivity.class)));
+        dl.setOrientation(LinearLayout.HORIZONTAL);
+        dl.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout dlText = new LinearLayout(this);
+        dlText.setOrientation(LinearLayout.VERTICAL);
+        dlText.addView(UI.tv(this, "Downloads", 16, true, text));
+        dlText.addView(UI.tv(this, "Lectures saved for offline watching", 13, false, dim));
+        dl.addView(dlText, new LinearLayout.LayoutParams(0, -2, 1f));
+        dl.addView(UI.tv(this, "\u203A", 24, true, dim));
+        col.addView(dl, UI.matchWrap());
         col.addView(UI.space(this, 12));
 
         LinearLayout dev = UI.card(this, 22, 18, null, null);
