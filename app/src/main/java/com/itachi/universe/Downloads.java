@@ -8,6 +8,9 @@ import android.os.Looper;
 
 import androidx.core.content.ContextCompat;
 
+import com.yausername.youtubedl_android.YoutubeDL;
+import com.yausername.youtubedl_android.YoutubeDLRequest;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -48,6 +51,7 @@ public final class Downloads {
             .connectTimeout(30, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).followRedirects(true).build();
     private static final Map<Integer, Integer> progress = new ConcurrentHashMap<>();   // id -> 0..100
     private static final Map<Integer, AtomicBoolean> cancels = new ConcurrentHashMap<>();
+    private static final Map<Integer, String> ytProcesses = new ConcurrentHashMap<>();
     private static final List<Runnable> listeners = new CopyOnWriteArrayList<>();
 
     public static void addListener(Runnable r) { listeners.add(r); }
@@ -127,6 +131,51 @@ public final class Downloads {
     public static void cancel(int id) {
         AtomicBoolean f = cancels.get(id);
         if (f != null) f.set(true);
+        String processId = ytProcesses.get(id);
+        if (processId != null) {
+            try { YoutubeDL.getInstance().destroyProcessById(processId); }
+            catch (Exception ignored) { }
+        }
+    }
+
+    /** yt-dlp writes into the same app-private vault; the temporary extension is removed on commit. */
+    private static void downloadYoutube(Context c, int id, String url, AtomicBoolean cancel) throws Exception {
+        File d = dir(c);
+        String prefix = "yt" + id;
+        File[] stale = d.listFiles((parent, name) -> name.startsWith(prefix + "."));
+        if (stale != null) for (File f : stale) f.delete();
+
+        String processId = "itachi-youtube-" + id;
+        ytProcesses.put(id, processId);
+        YoutubeDLRequest request = new YoutubeDLRequest(url);
+        request.addOption("--no-playlist");
+        request.addOption("--no-part");
+        request.addOption("--no-mtime");
+        request.addOption("--no-warnings");
+        // Prefer a single-file MP4 containing both audio and video; fall back to the best muxed format.
+        request.addOption("-f", "best[ext=mp4]/best");
+        request.addOption("-o", new File(d, prefix + ".%(ext)s").getAbsolutePath());
+        try {
+            YoutubeDL.getInstance().execute(request, processId, (percent, etaSeconds, line) -> {
+                if (cancel.get()) {
+                    try { YoutubeDL.getInstance().destroyProcessById(processId); }
+                    catch (Exception ignored) { }
+                    return;
+                }
+                int p = Math.max(0, Math.min(99, Math.round(percent)));
+                progress.put(id, p);
+                ping();
+            }, processId);
+        } finally {
+            ytProcesses.remove(id);
+        }
+        if (cancel.get()) throw new IOException("cancelled");
+
+        File[] outputs = d.listFiles((parent, name) -> name.startsWith(prefix + ".") && !name.endsWith(".part"));
+        if (outputs == null || outputs.length == 0 || outputs[0].length() == 0)
+            throw new IOException("yt-dlp did not produce a video file. The video may be unavailable or restricted.");
+        File output = outputs[0];
+        if (!output.renameTo(file(c, id))) throw new IOException("Could not move the downloaded video into private storage.");
     }
 
     // ---------- download ----------
@@ -145,7 +194,13 @@ public final class Downloads {
             try {
                 Models.PlaySource src = Api.playSource(id, "video");
                 String lower = src.url.toLowerCase();
-                if (MediaLinks.youtubeId(src.url) != null) throw new IOException("YouTube lectures can only be watched online.");
+                if (MediaLinks.youtubeId(src.url) != null) {
+                    downloadYoutube(c, id, src.url, cancel);
+                    Item it = new Item();
+                    it.id = id; it.title = title; it.subtitle = subtitle;
+                    it.size = file(c, id).length();
+                    remember(c, it);
+                } else {
                 if (lower.contains(".m3u8")) throw new IOException("This video is a live-style stream and cannot be saved.");
                 File part = part(c, id);
                 long have = part.exists() ? part.length() : 0;
@@ -179,9 +234,15 @@ public final class Downloads {
                 Item it = new Item();
                 it.id = id; it.title = title; it.subtitle = subtitle;
                 remember(c, it);
+                }
             } catch (Exception e) {
-                error = "cancelled".equals(e.getMessage()) ? null : (e.getMessage() == null ? "Download failed." : e.getMessage());
-                if ("cancelled".equals(e.getMessage())) part(c, id).delete();
+                boolean wasCancelled = cancel.get() || "cancelled".equals(e.getMessage());
+                error = wasCancelled ? null : (e.getMessage() == null ? "Download failed." : e.getMessage());
+                if (wasCancelled) {
+                    part(c, id).delete();
+                    File[] ytFiles = dir(c).listFiles((parent, name) -> name.startsWith("yt" + id + "."));
+                    if (ytFiles != null) for (File f : ytFiles) f.delete();
+                }
             } finally {
                 progress.remove(id);
                 cancels.remove(id);

@@ -1,0 +1,9 @@
+Third-party dependency notice
+
+This project now references:
+  io.github.junkfood02.youtubedl-android:library:0.18.1
+  Project: https://github.com/yausername/youtubedl-android
+  License: GNU General Public License v3.0 (GPL-3.0)
+
+Review the dependency license and comply with its source-distribution and
+redistribution requirements before distributing an APK that includes it.
