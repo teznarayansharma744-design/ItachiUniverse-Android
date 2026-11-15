@@ -61,7 +61,7 @@ public class DownloadsActivity extends BaseActivity {
             card.addView(UI.tv(this, mb(it.size), 12, false, UI.dim(this)));
             card.addView(UI.space(this, 12));
             LinearLayout row = new LinearLayout(this);
-            row.addView(UI.pillButton(this, "▶  Play", v -> {
+            row.addView(UI.pillButton(this, "▷  Play", v -> {
                 Intent i = new Intent(this, PlayerActivity.class);
                 i.putExtra("id", it.id);
                 i.putExtra("title", it.title);
@@ -69,11 +69,11 @@ public class DownloadsActivity extends BaseActivity {
                 startActivity(i);
             }), new LinearLayout.LayoutParams(0, -2, 1f));
             row.addView(UI.space(this, 1), UI.lp(UI.dp(this, 10), 1));
-            row.addView(UI.pillButton(this, "Remove", v -> new GlassDialog.Builder(this)
+            row.addView(UI.pillButton(this, "⌫  Remove", v -> new GlassDialog.Builder(this)
                     .setTitle("Remove this download?")
                     .setMessage("You can download it again any time.")
                     .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Remove", (d, w) -> Downloads.delete(this, it.id))
+                    .setPositiveButton("⌫  Remove", (d, w) -> Downloads.delete(this, it.id))
                     .show()), new LinearLayout.LayoutParams(0, -2, 1f));
             card.addView(row, UI.matchWrap());
             LinearLayout.LayoutParams lp = UI.matchWrap();

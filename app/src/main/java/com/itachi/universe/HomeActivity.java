@@ -39,7 +39,7 @@ public class HomeActivity extends BaseActivity {
         LinearLayout nav = UI.card(this, 24, 8, null, null);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
-        String[] icons = {"\u2302", "\u25A6", "\u2699", "\u2139"};
+        String[] icons = {"⌂", "▤", "⚙", "ⓘ"};
         String[] labels = {"Home", "Library", "Settings", "About"};
         for (int i = 0; i < tabs.length; i++) {
             final int idx = i;
@@ -112,7 +112,7 @@ public class HomeActivity extends BaseActivity {
         col.addView(UI.space(this, 20));
 
         LinearLayout searchCard = UI.card(this, 20, 14, null, v -> startActivity(new Intent(this, SearchActivity.class)));
-        searchCard.addView(UI.tv(this, "\uD83D\uDD0D  Search lectures", 15, false, dim));
+        searchCard.addView(UI.tv(this, "⌕  Search lectures", 15, false, dim));
         col.addView(searchCard, UI.matchWrap());
         col.addView(UI.space(this, 16));
 
@@ -186,7 +186,7 @@ public class HomeActivity extends BaseActivity {
         });
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
-        card.addView(UI.iconTile(this, index % 2 == 0 ? "\uD83D\uDCDA" : "\u26A1", batch.tint, 48));
+        card.addView(UI.iconTile(this, index % 2 == 0 ? "▤" : "✦", batch.tint, 48));
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.addView(UI.tv(this, batch.name, 16, true, UI.text(this)));

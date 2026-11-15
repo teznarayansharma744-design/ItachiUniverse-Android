@@ -51,7 +51,7 @@ public class UnitsActivity extends BaseActivity {
         if (Access.isDemo() && unit.freeCount() > 0) {
             card.addView(UI.tv(this, unit.freeCount() + " FREE", 11, true, UI.TEAL));
         } else if (Access.isDemo()) {
-            card.addView(UI.tv(this, "\uD83D\uDD12", 15, false, UI.text(this)));
+            card.addView(UI.tv(this, "▣", 15, false, UI.text(this)));
         }
         TextView arrow = UI.tv(this, "\u203A", 24, false, UI.dim(this));
         arrow.setPadding(UI.dp(this, 6), 0, 0, 0);

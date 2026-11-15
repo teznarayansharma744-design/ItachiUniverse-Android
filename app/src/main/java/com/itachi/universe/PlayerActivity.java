@@ -47,6 +47,8 @@ public class PlayerActivity extends BaseActivity {
     private boolean fullscreen = false;
     private boolean hasPdf;
     private PdfPanel pdfPanel;
+    private LinearLayout pdfActionBar;
+    private boolean pdfOpen = false;
     private final ActivityResultLauncher<String> pdfSaver =
             registerForActivityResult(new ActivityResultContracts.CreateDocument("application/pdf"),
                     uri -> { if (pdfPanel != null) pdfPanel.saveTo(uri); });
@@ -125,8 +127,17 @@ public class PlayerActivity extends BaseActivity {
         rootCol.addView(info, UI.matchWrap());
 
         if (hasPdf) {
+            pdfActionBar = new LinearLayout(this);
+            pdfActionBar.setGravity(Gravity.CENTER_VERTICAL);
+            pdfActionBar.setPadding(UI.dp(this, 20), UI.dp(this, 10), UI.dp(this, 20), UI.dp(this, 4));
+            TextView openPdf = UI.pillButton(this, "▤  Open PDF", v -> showPdf());
+            pdfActionBar.addView(openPdf, new LinearLayout.LayoutParams(-1, -2));
+            rootCol.addView(pdfActionBar, UI.matchWrap());
+
             pdfPanel = new PdfPanel(this, lectureId, title, true);
+            pdfPanel.setVisibility(View.GONE);
             pdfPanel.setOnDownload(() -> pdfSaver.launch(pdfPanel.fileName()));
+            pdfPanel.setOnClose(this::hidePdf);
             LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-1, 0, 1f);
             pp.topMargin = UI.dp(this, 8);
             rootCol.addView(pdfPanel, pp);
@@ -144,6 +155,19 @@ public class PlayerActivity extends BaseActivity {
         });
 
         load();
+    }
+
+    private void showPdf() {
+        if (pdfPanel == null) return;
+        pdfOpen = true;
+        pdfActionBar.setVisibility(View.GONE);
+        pdfPanel.setVisibility(landscape() || fullscreen ? View.GONE : View.VISIBLE);
+    }
+
+    private void hidePdf() {
+        pdfOpen = false;
+        if (pdfPanel != null) pdfPanel.setVisibility(View.GONE);
+        if (pdfActionBar != null) pdfActionBar.setVisibility(View.VISIBLE);
     }
 
     // ---------- loading ----------
@@ -191,10 +215,16 @@ public class PlayerActivity extends BaseActivity {
                 .build();
         PlayerView pv = new PlayerView(this);
         pv.setPlayer(player);
-        pv.setControllerShowTimeoutMs(3000);
+        pv.setUseController(false);
+        pv.setResizeMode(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT);
         pv.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING);
-        pv.setFullscreenButtonClickListener(isFull -> setFullscreen(isFull));
         videoHolder.addView(pv, new FrameLayout.LayoutParams(-1, -1));
+        ytControls = new YtControls(this, player, pv, title, new YtControls.Host() {
+            @Override public boolean isFullscreen() { return fullscreen; }
+            @Override public void toggleFullscreen() { setFullscreen(!fullscreen); }
+            @Override public void onBack() { getOnBackPressedDispatcher().onBackPressed(); }
+        });
+        videoHolder.addView(ytControls, new FrameLayout.LayoutParams(-1, -1));
         player.setMediaItem(MediaItem.fromUri(src.url));
         float from = Progress.resume(this, lectureId);
         if (from > 0) {
@@ -268,7 +298,8 @@ public class PlayerActivity extends BaseActivity {
     private void applyLayout() {
         boolean full = fullscreen || landscape();
         info.setVisibility(full ? View.GONE : View.VISIBLE);
-        if (pdfPanel != null) pdfPanel.setVisibility(full ? View.GONE : View.VISIBLE);
+        if (pdfPanel != null) pdfPanel.setVisibility(full || !pdfOpen ? View.GONE : View.VISIBLE);
+        if (pdfActionBar != null) pdfActionBar.setVisibility(full || pdfOpen ? View.GONE : View.VISIBLE);
         int w = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
         int h = full ? ViewGroup.LayoutParams.MATCH_PARENT : Math.min(w * 9 / 16, (int) (sh * 0.45f));
         rootCol.removeView(videoHolder);

@@ -133,9 +133,15 @@ public final class UI {
         TextView t = new TextView(c);
         t.setText(glyph);
         t.setGravity(Gravity.CENTER);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeDp * 0.42f);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeDp * 0.40f);
         t.setTextColor(Color.WHITE);
-        t.setBackground(box((tint & 0x00FFFFFF) | 0x50000000, dp(c, sizeDp / 3f), 0, 0));
+        t.setShadowLayer(dp(c, 5), 0, dp(c, 2), 0x66000000);
+        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{(tint & 0x00FFFFFF) | 0xE6000000, (tint & 0x00FFFFFF) | 0x99000000});
+        g.setCornerRadius(dp(c, sizeDp / 3f));
+        g.setStroke(dp(c, 1), 0x55FFFFFF);
+        t.setBackground(g);
+        t.setElevation(dp(c, 3));
         t.setLayoutParams(lp(dp(c, sizeDp), dp(c, sizeDp)));
         return t;
     }

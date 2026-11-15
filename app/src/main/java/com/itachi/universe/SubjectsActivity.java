@@ -7,7 +7,7 @@ import android.view.View;
 import android.widget.LinearLayout;
 
 public class SubjectsActivity extends BaseActivity {
-    static final String[] SUBJECT_ICONS = {"\u26A1", "\uD83E\uDDEA", "\uD83E\uDDEE", "\uD83C\uDF3F"};
+    static final String[] SUBJECT_ICONS = {"ϟ", "⚗", "∑", "❋"};
 
     @Override
     protected void onCreate(Bundle b) {

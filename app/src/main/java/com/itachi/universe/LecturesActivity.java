@@ -117,7 +117,7 @@ public class LecturesActivity extends BaseActivity {
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.addView(UI.iconTile(this, pdfOnly ? "\uD83D\uDCC4" : "\u25B6", pdfOnly ? UI.PINK : UI.INDIGO, 40));
+        top.addView(UI.iconTile(this, pdfOnly ? "▤" : "\u25B6", pdfOnly ? UI.PINK : UI.INDIGO, 40));
         TextView title = UI.tv(this, l.title, 16, true, UI.text(this));
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
         tp.leftMargin = UI.dp(this, 12);
@@ -127,19 +127,19 @@ public class LecturesActivity extends BaseActivity {
         } else if (l.hasVideo && Progress.percent(this, l.id) > 0) {
             top.addView(UI.tv(this, Progress.percent(this, l.id) + "%", 11, true, UI.INDIGO));
         } else if (Access.isDemo() && l.free) top.addView(UI.tv(this, "FREE", 11, true, UI.TEAL));
-        else if (locked) top.addView(UI.tv(this, "\uD83D\uDD12", 15, false, UI.dim(this)));
+        else if (locked) top.addView(UI.tv(this, "▣", 15, false, UI.dim(this)));
         card.addView(top, UI.matchWrap());
         card.addView(UI.space(this, 12));
 
         LinearLayout actions = new LinearLayout(this);
         if (l.hasVideo) {
-            actions.addView(UI.pillButton(this, locked ? "\uD83D\uDD12  Play video" : "\u25B6  Play video",
+            actions.addView(UI.pillButton(this, locked ? "▣  Play video" : "▷  Play video",
                     v -> { if (locked) Access.showPremiumRequired(this); else play(l); }),
                     new LinearLayout.LayoutParams(0, -2, 1f));
         }
         if (l.hasVideo && l.hasPdf) actions.addView(UI.space(this, 1), UI.lp(UI.dp(this, 10), 1));
         if (l.hasPdf) {
-            actions.addView(UI.pillButton(this, locked ? "\uD83D\uDD12  View PDF" : "\uD83D\uDCC4  View PDF",
+            actions.addView(UI.pillButton(this, locked ? "▣  View PDF" : "▤  View PDF",
                     v -> { if (locked) Access.showPremiumRequired(this); else openPdf(l); }),
                     new LinearLayout.LayoutParams(0, -2, 1f));
         }

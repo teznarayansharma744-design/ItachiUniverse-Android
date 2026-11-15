@@ -24,11 +24,16 @@ import android.widget.TextView;
 
 import com.arknox.youtube.YouTubePlayerListener;
 import com.arknox.youtube.YouTubePlayerView;
+import androidx.media3.common.Player;
+import androidx.media3.common.PlaybackParameters;
+import androidx.media3.ui.AspectRatioFrameLayout;
+import androidx.media3.ui.PlayerView;
+import androidx.media3.exoplayer.ExoPlayer;
 
 import java.util.Locale;
 
 /**
- * PLAYit-style controls drawn on top of the YouTube player (YouTube videos only).
+ * Shared custom playback controls for YouTube, direct-stream and offline video playback.
  *
  * Gestures: double tap left/right = -10s/+10s, double tap centre = play/pause,
  * swipe left/right = seek, swipe up/down on the left half = brightness, on the right half = volume,
@@ -50,6 +55,8 @@ public class YtControls extends FrameLayout {
 
     private Activity act;
     private YouTubePlayerView yt;
+    private ExoPlayer exo;
+    private PlayerView exoView;
     private Host host;
     private AudioManager audio;
     private final Handler h = new Handler(Looper.getMainLooper());
@@ -74,9 +81,21 @@ public class YtControls extends FrameLayout {
     private Runnable hideUnlock;
 
     public YtControls(Activity a, YouTubePlayerView player, String title, Host host) {
+        this(a, player, null, null, title, host);
+    }
+
+    /** Same custom controls for locally downloaded and direct-stream videos. */
+    public YtControls(Activity a, ExoPlayer player, PlayerView view, String title, Host host) {
+        this(a, null, player, view, title, host);
+    }
+
+    private YtControls(Activity a, YouTubePlayerView youtube, ExoPlayer media, PlayerView view,
+                       String title, Host host) {
         super(a);
         this.act = a;
-        this.yt = player;
+        this.yt = youtube;
+        this.exo = media;
+        this.exoView = view;
         this.host = host;
         this.audio = (AudioManager) a.getSystemService(Context.AUDIO_SERVICE);
         this.maxVol = Math.max(1, audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
@@ -96,28 +115,59 @@ public class YtControls extends FrameLayout {
         buildUi(title == null ? "" : title);
         gd = new GestureDetector(a, new Gesture());
 
-        yt.addListener(new YouTubePlayerListener() {
-            @Override public void onPlaying(String videoId) {
-                playing = true; ended = false;
-                updatePlayIcon();
-                scheduleHide();
-            }
-            @Override public void onPaused(String videoId) {
-                playing = false;
-                updatePlayIcon();
-                if (!locked) showControls();
-            }
-            @Override public void onEnded(String videoId) {
-                playing = false; ended = true;
-                updatePlayIcon();
-                if (!locked) showControls();
-            }
-            @Override public void onTimeUpdate(float currentTime, float duration) {
-                pos = currentTime;
-                dur = duration;
-                if (!userSeeking && mode != SEEK) updateSeek();
-            }
-        });
+        if (yt != null) {
+            yt.addListener(new YouTubePlayerListener() {
+                @Override public void onPlaying(String videoId) { onMediaPlaying(); }
+                @Override public void onPaused(String videoId) { onMediaPaused(); }
+                @Override public void onEnded(String videoId) { onMediaEnded(); }
+                @Override public void onTimeUpdate(float currentTime, float duration) {
+                    pos = currentTime; dur = duration;
+                    if (!userSeeking && mode != SEEK) updateSeek();
+                }
+            });
+        } else if (exo != null) {
+            exo.addListener(new Player.Listener() {
+                @Override public void onIsPlayingChanged(boolean isPlaying) {
+                    if (isPlaying) onMediaPlaying(); else onMediaPaused();
+                }
+                @Override public void onPlaybackStateChanged(int state) {
+                    if (state == Player.STATE_ENDED) onMediaEnded();
+                    else if (state == Player.STATE_READY) updatePlayIcon();
+                }
+            });
+            h.post(exoTicker);
+        }
+    }
+
+    private void onMediaPlaying() {
+        playing = true; ended = false; updatePlayIcon(); scheduleHide();
+    }
+    private void onMediaPaused() {
+        playing = false; updatePlayIcon(); if (!locked) showControls();
+    }
+    private void onMediaEnded() {
+        playing = false; ended = true; updatePlayIcon(); if (!locked) showControls();
+    }
+    private final Runnable exoTicker = new Runnable() {
+        @Override public void run() {
+            if (exo == null) return;
+            pos = exo.getCurrentPosition() / 1000f;
+            long d = exo.getDuration();
+            dur = d > 0 ? d / 1000f : 0f;
+            if (!userSeeking && mode != SEEK) updateSeek();
+            h.postDelayed(this, 250);
+        }
+    };
+
+    private void mediaSeek(float seconds) {
+        if (yt != null) yt.seekTo(seconds);
+        else if (exo != null) exo.seekTo(Math.max(0L, (long) (seconds * 1000f)));
+    }
+    private void mediaPlay() { if (yt != null) yt.play(); else if (exo != null) exo.play(); }
+    private void mediaPause() { if (yt != null) yt.pause(); else if (exo != null) exo.pause(); }
+    private void mediaSpeed(float speed) {
+        if (yt != null) yt.setSpeed(speed);
+        else if (exo != null) exo.setPlaybackParameters(new PlaybackParameters(speed));
     }
 
     // ------------------------------------------------------------------ UI
@@ -188,7 +238,7 @@ public class YtControls extends FrameLayout {
         controls.addView(center, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
 
         // lock button (left, middle)
-        lockBtn = round("\uD83D\uDD12", 15, 40);
+        lockBtn = round("▣", 15, 40);
         lockBtn.setOnClickListener(v -> lock());
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(dp(40), dp(40), Gravity.START | Gravity.CENTER_VERTICAL);
         lp.setMargins(dp(10), 0, 0, 0);
@@ -221,7 +271,7 @@ public class YtControls extends FrameLayout {
                 userSeeking = false;
                 if (dur > 0) {
                     float t = sb.getProgress() / 1000f * dur;
-                    yt.seekTo(t);
+                    mediaSeek(t);
                     pos = t;
                 }
                 scheduleHide();
@@ -256,7 +306,7 @@ public class YtControls extends FrameLayout {
         addView(controls, new FrameLayout.LayoutParams(-1, -1));
 
         // shown only while the screen is locked (after a tap)
-        unlockBtn = round("\uD83D\uDD13", 15, 40);
+        unlockBtn = round("□", 15, 40);
         unlockBtn.setVisibility(View.GONE);
         unlockBtn.setOnClickListener(v -> unlock());
         FrameLayout.LayoutParams up = new FrameLayout.LayoutParams(dp(40), dp(40), Gravity.START | Gravity.CENTER_VERTICAL);
@@ -297,7 +347,7 @@ public class YtControls extends FrameLayout {
         @Override public void onLongPress(MotionEvent e) {
             if (locked || mode != NONE) return;
             longPress = true;
-            yt.setSpeed(2f);
+            mediaSpeed(2f);
             showHud("2x  \u25B6\u25B6", 0);
         }
     }
@@ -368,13 +418,13 @@ public class YtControls extends FrameLayout {
 
     private void endGesture() {
         if (mode == SEEK && dur > 0) {
-            yt.seekTo(seekTarget);
+            mediaSeek(seekTarget);
             pos = seekTarget;
             updateSeek();
         }
         if (longPress) {
             longPress = false;
-            yt.setSpeed(SPEEDS[speedIdx]);
+            mediaSpeed(SPEEDS[speedIdx]);
         }
         if (hud.getVisibility() == View.VISIBLE) {
             h.removeCallbacks(hideHud);
@@ -389,14 +439,14 @@ public class YtControls extends FrameLayout {
         if (ended) {
             ended = false;
             playing = true;
-            yt.seekTo(0);
-            yt.play();
+            mediaSeek(0);
+            mediaPlay();
         } else if (playing) {
             playing = false;
-            yt.pause();
+            mediaPause();
         } else {
             playing = true;
-            yt.play();
+            mediaPlay();
         }
         updatePlayIcon();
     }
@@ -404,7 +454,7 @@ public class YtControls extends FrameLayout {
     private void skip(int sec) {
         float t = pos + sec;
         t = dur > 0 ? clamp(t, 0f, dur) : Math.max(0f, t);
-        yt.seekTo(t);
+        mediaSeek(t);
         pos = t;
         updateSeek();
         showHud(sec > 0 ? "\u25B6\u25B6  +" + sec + "s" : "\u25C0\u25C0  " + sec + "s", 600);
@@ -413,7 +463,7 @@ public class YtControls extends FrameLayout {
     private void cycleSpeed() {
         speedIdx = (speedIdx + 1) % SPEEDS.length;
         float s = SPEEDS[speedIdx];
-        yt.setSpeed(s);
+        mediaSpeed(s);
         speedBtn.setText(speedLabel(s));
         showHud("Speed " + speedLabel(s), 700);
         scheduleHide();
@@ -421,7 +471,13 @@ public class YtControls extends FrameLayout {
 
     private void cycleFit() {
         fitMode = (fitMode + 1) % FIT_NAMES.length;
-        yt.setFitMode(fitMode);
+        if (yt != null) yt.setFitMode(fitMode);
+        else if (exoView != null) {
+            int[] modes = {AspectRatioFrameLayout.RESIZE_MODE_FIT,
+                    AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+                    AspectRatioFrameLayout.RESIZE_MODE_FILL};
+            exoView.setResizeMode(modes[fitMode]);
+        }
         fitBtn.setText(FIT_NAMES[fitMode]);
         showHud(FIT_NAMES[fitMode], 700);
         scheduleHide();

@@ -62,6 +62,7 @@ public class PdfPanel extends LinearLayout {
     private PageAdapter adapter;
     private boolean dragging;
     private Runnable onDownload;
+    private Runnable onClose;
     private final Runnable dim = () -> { if (handle != null && !dragging) handle.animate().alpha(0.4f).setDuration(300).start(); };
 
     public PdfPanel(BaseActivity host, int lectureId, String title, boolean toolbar) {
@@ -77,11 +78,12 @@ public class PdfPanel extends LinearLayout {
             bar.setPadding(UI.dp(host, 20), UI.dp(host, 6), UI.dp(host, 8), UI.dp(host, 6));
             TextView label = UI.tv(host, "PDF notes", 15, true, UI.text(host));
             bar.addView(label, new LayoutParams(0, -2, 1f));
-            bar.addView(UI.textButton(host, "Download", v -> {
+            bar.addView(UI.textButton(host, "↓ Save", v -> {
                 if (bytes == null) host.toast("The PDF is still loading.");
                 else if (onDownload != null) onDownload.run();
             }));
-            bar.addView(UI.textButton(host, "Open in", v -> openIn()));
+            bar.addView(UI.textButton(host, "↗ Open", v -> openIn()));
+            bar.addView(UI.textButton(host, "✕ Close", v -> { if (onClose != null) onClose.run(); }));
             addView(bar, UI.matchWrap());
         }
 
@@ -98,6 +100,7 @@ public class PdfPanel extends LinearLayout {
     }
 
     public void setOnDownload(Runnable r) { onDownload = r; }
+    public void setOnClose(Runnable r) { onClose = r; }
 
     public String fileName() { return title.replaceAll("[^A-Za-z0-9._ -]", "_").trim() + ".pdf"; }
 
@@ -170,8 +173,25 @@ public class PdfPanel extends LinearLayout {
         // pinch to zoom: applied when the fingers lift, so the pages do not re-render on every frame
         final ScaleGestureDetector pinch = new ScaleGestureDetector(host, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
             float acc = 1f;
-            @Override public boolean onScale(ScaleGestureDetector d) { acc *= d.getScaleFactor(); return true; }
-            @Override public void onScaleEnd(ScaleGestureDetector d) { setZoom(zoom * acc); acc = 1f; }
+            @Override public boolean onScaleBegin(ScaleGestureDetector d) {
+                acc = 1f;
+                rv.setPivotX(d.getFocusX());
+                rv.setPivotY(d.getFocusY());
+                return true;
+            }
+            @Override public boolean onScale(ScaleGestureDetector d) {
+                acc *= d.getScaleFactor();
+                float preview = Math.max(0.75f, Math.min(1.6f, acc));
+                rv.setScaleX(preview);
+                rv.setScaleY(preview);
+                return true;
+            }
+            @Override public void onScaleEnd(ScaleGestureDetector d) {
+                rv.setScaleX(1f);
+                rv.setScaleY(1f);
+                setZoom(zoom * acc);
+                acc = 1f;
+            }
         });
         rv.addOnItemTouchListener(new RecyclerView.OnItemTouchListener() {
             @Override public boolean onInterceptTouchEvent(RecyclerView r, MotionEvent e) {
@@ -380,7 +400,7 @@ public class PdfPanel extends LinearLayout {
                 try {
                     synchronized (PdfPanel.this) {
                         if (renderer == null) return;
-                        int rw = Math.min(w, 2000), rh = Math.round(rw / aspect);
+                        int rw = Math.min(Math.max(w, 1), 2800), rh = Math.round(rw / aspect);
                         bmp = Bitmap.createBitmap(rw, rh, Bitmap.Config.ARGB_8888);
                         bmp.eraseColor(Color.WHITE);
                         PdfRenderer.Page p = renderer.openPage(page);
