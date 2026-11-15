@@ -160,11 +160,12 @@ public final class Downloads {
                 if (cancel.get()) {
                     try { YoutubeDL.getInstance().destroyProcessById(processId); }
                     catch (Exception ignored) { }
-                    return;
+                    return kotlin.Unit.INSTANCE;
                 }
                 int p = Math.max(0, Math.min(99, Math.round(percent)));
                 progress.put(id, p);
                 ping();
+                return kotlin.Unit.INSTANCE;
             });
         } finally {
             ytProcesses.remove(id);
