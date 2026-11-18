@@ -113,8 +113,9 @@ public final class Updater {
         new GlassDialog.Builder(a)
                 .setTitle("Update available")
                 .setMessage(msg)
-                .setPositiveButton("Update", (d, w) -> download(a, i))
-                .setNegativeButton("Later", null)
+                .setPositiveButton("Update now", (d, w) -> download(a, i))
+                .setNegativeButton("Open link", (d, w) -> openReleasePage(a))
+                .setNeutralButton("Later", null)
                 .show();
     }
 
@@ -198,6 +199,16 @@ public final class Updater {
             return in.read() == 'P' && in.read() == 'K';  // an APK is a zip file
         } catch (IOException e) {
             return false;
+        }
+    }
+
+    /** Opens the release page in the browser, where the APK can be downloaded by hand. */
+    private static void openReleasePage(Activity a) {
+        try {
+            a.startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/" + BuildConfig.UPDATE_REPO + "/releases/latest")));
+        } catch (Exception e) {
+            GlassToast.show(a, "Could not open the link.");
         }
     }
 

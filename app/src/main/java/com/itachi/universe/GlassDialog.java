@@ -146,6 +146,11 @@ public class GlassDialog extends Dialog {
             m.setLineSpacing(0, 1.12f);
             ScrollView sv = new ScrollView(c);
             sv.addView(m);
+            final int maxMsgH = (int) (c.getResources().getDisplayMetrics().heightPixels * 0.34f);
+            sv.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+                ViewGroup.LayoutParams lp = sv.getLayoutParams();
+                if (sv.getHeight() > maxMsgH && lp.height != maxMsgH) { lp.height = maxMsgH; sv.setLayoutParams(lp); }
+            });
             col.addView(sv, new LinearLayout.LayoutParams(-1, -2));
             col.addView(UI.space(c, 8));
         }
@@ -162,6 +167,9 @@ public class GlassDialog extends Dialog {
             // negative margins of the old AlertDialog view padding are kept by the view itself
         }
         if (spec.items != null) {
+            // the list scrolls, so every item stays reachable in landscape where the screen is short
+            LinearLayout itemsCol = new LinearLayout(c);
+            itemsCol.setOrientation(LinearLayout.VERTICAL);
             for (int i = 0; i < spec.items.length; i++) {
                 final int idx = i;
                 boolean danger = spec.items[i].toLowerCase().startsWith("delete") || spec.items[i].toLowerCase().startsWith("revoke");
@@ -174,19 +182,41 @@ public class GlassDialog extends Dialog {
                 row.setOnClickListener(v -> { dismiss(); if (spec.onItem != null) spec.onItem.accept(idx); });
                 Motion.press(row);
                 LinearLayout.LayoutParams lp = UI.matchWrap();
-                lp.topMargin = UI.dp(c, 8);
-                col.addView(row, lp);
+                lp.topMargin = UI.dp(c, i == 0 ? 4 : 8);
+                itemsCol.addView(row, lp);
             }
+            ScrollView isv = new ScrollView(c);
+            isv.setVerticalScrollBarEnabled(false);
+            isv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            isv.addView(itemsCol);
+            final int maxItemsH = (int) (c.getResources().getDisplayMetrics().heightPixels * 0.62f);
+            isv.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+                ViewGroup.LayoutParams lp = isv.getLayoutParams();
+                if (isv.getHeight() > maxItemsH && lp.height != maxItemsH) { lp.height = maxItemsH; isv.setLayoutParams(lp); }
+            });
+            col.addView(isv, new LinearLayout.LayoutParams(-1, -2));
+            // scroll to the selected item so it is visible when the list opens
+            if (spec.checked > 0) isv.post(() -> {
+                View sel = itemsCol.getChildAt(spec.checked);
+                if (sel != null) isv.scrollTo(0, Math.max(0, sel.getTop() - UI.dp(c, 40)));
+            });
         }
 
         // buttons: a row for one or two, a stack for three
         int n = (spec.posText != null ? 1 : 0) + (spec.negText != null ? 1 : 0) + (spec.neuText != null ? 1 : 0);
         if (n > 0) {
             LinearLayout bar = new LinearLayout(c);
-            bar.setOrientation(n == 3 ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
-            if (spec.neuText != null) addButton(c, bar, spec.neuText, spec.neu, DialogInterface.BUTTON_NEUTRAL, false, n);
-            if (spec.negText != null) addButton(c, bar, spec.negText, spec.neg, DialogInterface.BUTTON_NEGATIVE, false, n);
-            if (spec.posText != null) addButton(c, bar, spec.posText, spec.pos, DialogInterface.BUTTON_POSITIVE, true, n);
+            final boolean stack = n == 3 && c.getResources().getDisplayMetrics().heightPixels > c.getResources().getDisplayMetrics().widthPixels;
+            bar.setOrientation(stack ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
+            if (stack) {  // stacked: the main action on top
+                addButton(c, bar, spec.posText, spec.pos, DialogInterface.BUTTON_POSITIVE, true, true);
+                addButton(c, bar, spec.negText, spec.neg, DialogInterface.BUTTON_NEGATIVE, false, true);
+                addButton(c, bar, spec.neuText, spec.neu, DialogInterface.BUTTON_NEUTRAL, false, true);
+            } else {
+                if (spec.neuText != null) addButton(c, bar, spec.neuText, spec.neu, DialogInterface.BUTTON_NEUTRAL, false, false);
+                if (spec.negText != null) addButton(c, bar, spec.negText, spec.neg, DialogInterface.BUTTON_NEGATIVE, false, false);
+                if (spec.posText != null) addButton(c, bar, spec.posText, spec.pos, DialogInterface.BUTTON_POSITIVE, true, false);
+            }
             LinearLayout.LayoutParams bp = UI.matchWrap();
             bp.topMargin = UI.dp(c, 14);
             col.addView(bar, bp);
@@ -196,7 +226,7 @@ public class GlassDialog extends Dialog {
         return col;
     }
 
-    private void addButton(Context c, LinearLayout bar, CharSequence label, DialogInterface.OnClickListener l, int which, boolean primary, int n) {
+    private void addButton(Context c, LinearLayout bar, CharSequence label, DialogInterface.OnClickListener l, int which, boolean primary, boolean stack) {
         boolean dark = UI.dark(c);
         TextView b = UI.tv(c, label.toString(), 15, true, primary ? Color.WHITE : UI.text(c));
         b.setGravity(Gravity.CENTER);
@@ -215,9 +245,9 @@ public class GlassDialog extends Dialog {
             if (l != null) l.onClick(this, which);
         });
         Motion.press(b);
-        LinearLayout.LayoutParams lp = n == 3 ? UI.matchWrap() : new LinearLayout.LayoutParams(0, -2, 1f);
+        LinearLayout.LayoutParams lp = stack ? UI.matchWrap() : new LinearLayout.LayoutParams(0, -2, 1f);
         if (bar.getChildCount() > 0) {
-            if (n == 3) lp.topMargin = UI.dp(c, 8); else lp.leftMargin = UI.dp(c, 10);
+            if (stack) lp.topMargin = UI.dp(c, 8); else lp.leftMargin = UI.dp(c, 10);
         }
         bar.addView(b, lp);
     }
