@@ -35,6 +35,7 @@ public class PdfActivity extends BaseActivity {
         root.addView(head, UI.matchWrap());
 
         panel = new PdfPanel(this, id, title, true);
+        panel.setSubtitle(subtitle);
         panel.setOnDownload(() -> saver.launch(panel.fileName()));
         root.addView(panel, new LinearLayout.LayoutParams(-1, 0, 1f));
         setScreen(root);

@@ -160,6 +160,18 @@ public class YtControls extends FrameLayout {
     }
     private void onMediaEnded() {
         playing = false; ended = true; updatePlayIcon(); if (!locked) showControls();
+        if (onEnded != null) onEnded.run();
+    }
+
+    private Runnable onEnded;
+    /** Called once when the video reaches its end (used for auto-play of the next lecture). */
+    public void setOnEnded(Runnable r) { onEnded = r; }
+    public float currentSeconds() { return pos; }
+    public float durationSeconds() { return dur; }
+    public void seekToSeconds(float t) {
+        mediaSeek(t);
+        pos = t;
+        updateSeek();
     }
     private final Runnable exoTicker = new Runnable() {
         @Override public void run() {

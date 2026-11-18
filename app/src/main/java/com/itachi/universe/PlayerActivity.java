@@ -8,7 +8,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
+import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -30,6 +32,8 @@ import androidx.media3.ui.PlayerView;
 import com.arknox.youtube.YouTubePlayerListener;
 import com.arknox.youtube.YouTubePlayerView;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -47,11 +51,33 @@ public class PlayerActivity extends BaseActivity {
     private boolean fullscreen = false;
     private boolean hasPdf;
     private PdfPanel pdfPanel;
-    private LinearLayout pdfActionBar;
-    private boolean pdfOpen = false;
     private final ActivityResultLauncher<String> pdfSaver =
             registerForActivityResult(new ActivityResultContracts.CreateDocument("application/pdf"),
                     uri -> { if (pdfPanel != null) pdfPanel.saveTo(uri); });
+
+    // the other lectures in this folder, shown under the video
+    private int[] ids;
+    private String[] titles;
+    private boolean[] frees, pdfFlags;
+    private int index;
+    private TextView titleView;
+    private LinearLayout tabBar, listCol, markCol;
+    private FrameLayout content;
+    private ScrollView listScroll, markScroll;
+    private static final int T_LECT = 0, T_MARK = 1, T_PDF = 2;
+    private int tab = T_LECT;
+    private final List<Integer> tabIds = new ArrayList<>();
+    private FrameLayout nextOverlay;
+    private int countdown;
+    private final Runnable ticker = new Runnable() {
+        @Override public void run() {
+            if (nextOverlay == null) return;
+            countdown--;
+            if (countdown <= 0) { switchTo(index + 1); return; }
+            updateCountdown();
+            handler.postDelayed(this, 1000);
+        }
+    };
     private int lectureId;
     private String title, subtitle;
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -111,6 +137,21 @@ public class PlayerActivity extends BaseActivity {
         if (subtitle == null) subtitle = "";
         hasPdf = getIntent().getBooleanExtra("pdf", false);
 
+        ids = getIntent().getIntArrayExtra("ids");
+        titles = getIntent().getStringArrayExtra("titles");
+        frees = getIntent().getBooleanArrayExtra("frees");
+        pdfFlags = getIntent().getBooleanArrayExtra("pdfs");
+        if (ids == null || titles == null || frees == null || pdfFlags == null
+                || ids.length != titles.length || ids.length != frees.length || ids.length != pdfFlags.length) {
+            ids = new int[]{lectureId};
+            titles = new String[]{title};
+            frees = new boolean[]{true};
+            pdfFlags = new boolean[]{hasPdf};
+        }
+        index = 0;
+        for (int k = 0; k < ids.length; k++) if (ids[k] == lectureId) index = k;
+        tab = ids.length > 1 ? T_LECT : T_MARK;
+
         rootCol = new LinearLayout(this);
         rootCol.setOrientation(LinearLayout.VERTICAL);
 
@@ -120,28 +161,37 @@ public class PlayerActivity extends BaseActivity {
 
         info = new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
-        info.setPadding(UI.dp(this, 20), UI.dp(this, 18), UI.dp(this, 20), 0);
+        info.setPadding(UI.dp(this, 20), UI.dp(this, 14), UI.dp(this, 20), 0);
         info.addView(UI.tv(this, subtitle, 12, true, UI.TEAL));
-        info.addView(UI.space(this, 6));
-        info.addView(UI.tv(this, title, 21, true, UI.text(this)));
+        info.addView(UI.space(this, 4));
+        titleView = UI.tv(this, title, 20, true, UI.text(this));
+        info.addView(titleView);
         rootCol.addView(info, UI.matchWrap());
 
-        if (hasPdf) {
-            pdfActionBar = new LinearLayout(this);
-            pdfActionBar.setGravity(Gravity.CENTER_VERTICAL);
-            pdfActionBar.setPadding(UI.dp(this, 20), UI.dp(this, 10), UI.dp(this, 20), UI.dp(this, 4));
-            TextView openPdf = UI.iconPill(this, R.drawable.ic_pdf, "Open PDF notes", v -> showPdf());
-            pdfActionBar.addView(openPdf, new LinearLayout.LayoutParams(-1, -2));
-            rootCol.addView(pdfActionBar, UI.matchWrap());
+        tabBar = new LinearLayout(this);
+        tabBar.setPadding(UI.dp(this, 16), UI.dp(this, 12), UI.dp(this, 16), UI.dp(this, 8));
+        rootCol.addView(tabBar, UI.matchWrap());
 
-            pdfPanel = new PdfPanel(this, lectureId, title, true);
-            pdfPanel.setVisibility(View.GONE);
-            pdfPanel.setOnDownload(() -> pdfSaver.launch(pdfPanel.fileName()));
-            pdfPanel.setOnClose(this::hidePdf);
-            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-1, 0, 1f);
-            pp.topMargin = UI.dp(this, 8);
-            rootCol.addView(pdfPanel, pp);
-        }
+        content = new FrameLayout(this);
+        listScroll = new ScrollView(this);
+        listScroll.setVerticalScrollBarEnabled(false);
+        listCol = new LinearLayout(this);
+        listCol.setOrientation(LinearLayout.VERTICAL);
+        listCol.setPadding(UI.dp(this, 16), UI.dp(this, 4), UI.dp(this, 16), UI.dp(this, 24));
+        listScroll.addView(listCol);
+        markScroll = new ScrollView(this);
+        markScroll.setVerticalScrollBarEnabled(false);
+        markCol = new LinearLayout(this);
+        markCol.setOrientation(LinearLayout.VERTICAL);
+        markCol.setPadding(UI.dp(this, 16), UI.dp(this, 4), UI.dp(this, 16), UI.dp(this, 24));
+        markScroll.addView(markCol);
+        content.addView(listScroll, new FrameLayout.LayoutParams(-1, -1));
+        content.addView(markScroll, new FrameLayout.LayoutParams(-1, -1));
+        rootCol.addView(content, new LinearLayout.LayoutParams(-1, 0, 1f));
+
+        renderPlaylist();
+        renderBookmarks();
+        buildTabs();
 
         setScreen(rootCol);
         applyLayout();
@@ -157,22 +207,237 @@ public class PlayerActivity extends BaseActivity {
         load();
     }
 
-    private void showPdf() {
-        if (pdfPanel == null) return;
-        pdfOpen = true;
-        pdfActionBar.setVisibility(View.GONE);
-        pdfPanel.setVisibility(landscape() || fullscreen ? View.GONE : View.VISIBLE);
+    // ---------- the area under the video: lectures, bookmarks, PDF ----------
+    private void buildTabs() {
+        tabIds.clear();
+        if (ids.length > 1) tabIds.add(T_LECT);
+        tabIds.add(T_MARK);
+        if (hasPdf) tabIds.add(T_PDF);
+        if (!tabIds.contains(tab)) tab = tabIds.get(0);
+        tabBar.removeAllViews();
+        for (int id : tabIds) {
+            String name = id == T_LECT ? "Lectures (" + ids.length + ")"
+                    : id == T_MARK ? "Bookmarks" + (Bookmarks.count(this, lectureId) > 0 ? " (" + Bookmarks.count(this, lectureId) + ")" : "")
+                    : "PDF notes";
+            TextView t = UI.tv(this, name, 13, true, id == tab ? UI.text(this) : UI.dim(this));
+            t.setGravity(Gravity.CENTER);
+            t.setPadding(UI.dp(this, 6), UI.dp(this, 11), UI.dp(this, 6), UI.dp(this, 11));
+            t.setSingleLine(true);
+            if (id == tab) UI.glassBg(t, 14, 2.2f);
+            t.setOnClickListener(v -> { tab = id; buildTabs(); });
+            Motion.press(t);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1f);
+            lp.rightMargin = UI.dp(this, 6);
+            tabBar.addView(t, lp);
+        }
+        showTab();
     }
 
-    private void hidePdf() {
-        pdfOpen = false;
-        if (pdfPanel != null) pdfPanel.setVisibility(View.GONE);
-        if (pdfActionBar != null) pdfActionBar.setVisibility(View.VISIBLE);
+    private void showTab() {
+        listScroll.setVisibility(tab == T_LECT ? View.VISIBLE : View.GONE);
+        markScroll.setVisibility(tab == T_MARK ? View.VISIBLE : View.GONE);
+        if (tab == T_PDF && hasPdf && pdfPanel == null) {
+            pdfPanel = new PdfPanel(this, lectureId, title, true);
+            pdfPanel.setSubtitle(subtitle);
+            pdfPanel.setOnDownload(() -> pdfSaver.launch(pdfPanel.fileName()));
+            content.addView(pdfPanel, new FrameLayout.LayoutParams(-1, -1));
+        }
+        if (pdfPanel != null) pdfPanel.setVisibility(tab == T_PDF ? View.VISIBLE : View.GONE);
+    }
+
+    private void disposePdf() {
+        if (pdfPanel == null) return;
+        pdfPanel.release();
+        content.removeView(pdfPanel);
+        pdfPanel = null;
+    }
+
+    private boolean autoNext() { return getSharedPreferences("player", MODE_PRIVATE).getBoolean("autonext", true); }
+
+    private boolean lockedAt(int k) { return Access.isDemo() && !frees[k]; }
+
+    private void renderPlaylist() {
+        listCol.removeAllViews();
+        if (ids.length < 2) return;
+        TextView auto = UI.tv(this, "", 13, true, UI.TEAL);
+        auto.setPadding(UI.dp(this, 4), UI.dp(this, 4), UI.dp(this, 4), UI.dp(this, 10));
+        Runnable paint = () -> auto.setText(autoNext() ? "Auto-play next lecture: ON  (tap to turn off)" : "Auto-play next lecture: OFF  (tap to turn on)");
+        paint.run();
+        auto.setOnClickListener(v -> {
+            getSharedPreferences("player", MODE_PRIVATE).edit().putBoolean("autonext", !autoNext()).apply();
+            paint.run();
+        });
+        listCol.addView(auto);
+        View current = null;
+        for (int k = 0; k < ids.length; k++) {
+            final int at = k;
+            boolean now = k == index;
+            LinearLayout row = UI.card(this, 16, 12, now ? new int[]{(UI.TEAL & 0x00FFFFFF) | 0x59000000} : null,
+                    v -> { if (at != index) switchTo(at); });
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            if (now) row.addView(UI.iconView(this, R.drawable.ic_play, 18, UI.TEAL), UI.lp(UI.dp(this, 30), UI.dp(this, 18)));
+            else {
+                TextView num = UI.tv(this, String.valueOf(k + 1), 14, true, UI.dim(this));
+                num.setGravity(Gravity.CENTER);
+                row.addView(num, UI.lp(UI.dp(this, 30), -2));
+            }
+            LinearLayout col = new LinearLayout(this);
+            col.setOrientation(LinearLayout.VERTICAL);
+            col.addView(UI.tv(this, titles[k], 15, true, UI.text(this)));
+            if (now) col.addView(UI.tv(this, "Now playing", 11, true, UI.TEAL));
+            row.addView(col, new LinearLayout.LayoutParams(0, -2, 1f));
+            if (lockedAt(k)) row.addView(UI.iconView(this, R.drawable.ic_lock, 16, UI.dim(this)));
+            else if (Progress.watched(this, ids[k])) row.addView(UI.withIcon(UI.tv(this, "Watched", 11, true, UI.TEAL), R.drawable.ic_check, 13));
+            else if (Progress.percent(this, ids[k]) > 0) row.addView(UI.tv(this, Progress.percent(this, ids[k]) + "%", 11, true, UI.dim(this)));
+            LinearLayout.LayoutParams lp = UI.matchWrap();
+            lp.bottomMargin = UI.dp(this, 8);
+            listCol.addView(row, lp);
+            if (now) current = row;
+        }
+        final View cur = current;
+        if (cur != null) listScroll.post(() -> listScroll.scrollTo(0, Math.max(0, cur.getTop() - UI.dp(this, 70))));
+    }
+
+    private void renderBookmarks() {
+        markCol.removeAllViews();
+        markCol.addView(UI.iconPill(this, R.drawable.ic_bookmark, "Bookmark this moment", v -> addBookmark()), UI.matchWrap());
+        markCol.addView(UI.space(this, 12));
+        List<Bookmarks.Mark> marks = Bookmarks.list(this, lectureId);
+        if (marks.isEmpty()) {
+            TextView t = UI.tv(this, "No bookmarks yet.\nTap the button while the video plays to mark a moment.", 13, false, UI.dim(this));
+            t.setGravity(Gravity.CENTER);
+            t.setPadding(0, UI.dp(this, 24), 0, 0);
+            markCol.addView(t, UI.matchWrap());
+            return;
+        }
+        for (int k = 0; k < marks.size(); k++) {
+            final int at = k;
+            final Bookmarks.Mark m = marks.get(k);
+            LinearLayout row = UI.card(this, 16, 12, null, v -> {
+                if (ytControls == null) { toast("The video is still loading."); return; }
+                ytControls.seekToSeconds(m.t);
+            });
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            TextView time = UI.tv(this, Progress.clock(m.t), 13, true, UI.TEAL);
+            time.setBackground(UI.box(0x2219C3B1, UI.dp(this, 999), 0, 0));
+            time.setPadding(UI.dp(this, 10), UI.dp(this, 5), UI.dp(this, 10), UI.dp(this, 5));
+            row.addView(time);
+            TextView label = UI.tv(this, m.label.isEmpty() ? "Bookmark" : m.label, 14, false, UI.text(this));
+            LinearLayout.LayoutParams lp0 = new LinearLayout.LayoutParams(0, -2, 1f);
+            lp0.leftMargin = UI.dp(this, 12);
+            row.addView(label, lp0);
+            android.widget.ImageView del = UI.iconView(this, R.drawable.ic_trash, 18, UI.dim(this));
+            del.setScaleType(android.widget.ImageView.ScaleType.CENTER);
+            del.setLayoutParams(UI.lp(UI.dp(this, 40), UI.dp(this, 36)));
+            del.setOnClickListener(v -> { Bookmarks.remove(this, lectureId, at); renderBookmarks(); buildTabs(); });
+            row.addView(del);
+            LinearLayout.LayoutParams lp = UI.matchWrap();
+            lp.bottomMargin = UI.dp(this, 8);
+            markCol.addView(row, lp);
+        }
+    }
+
+    private void addBookmark() {
+        if (ytControls == null) { toast("Start the video first."); return; }
+        final float t = ytControls.currentSeconds();
+        final EditText e = UI.input(this, "Note (optional)");
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.addView(e, UI.matchWrap());
+        new GlassDialog.Builder(this)
+                .setTitle("Bookmark at " + Progress.clock(t))
+                .setView(wrap)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save", (d, w) -> {
+                    Bookmarks.add(this, lectureId, t, e.getText().toString().trim());
+                    renderBookmarks();
+                    buildTabs();
+                    toast("Bookmark saved.");
+                }).show();
+    }
+
+    // ---------- switching lecture, auto-play next ----------
+    private void switchTo(int k) {
+        if (k < 0 || k >= ids.length) return;
+        if (lockedAt(k)) { Access.showPremiumRequired(this); return; }
+        saveExoProgress();
+        cancelAutoNext();
+        index = k;
+        lectureId = ids[k];
+        title = titles[k];
+        hasPdf = pdfFlags[k];
+        lastSavedAt = -100f;
+        titleView.setText(title);
+        disposePdf();
+        if (tab == T_PDF) tab = ids.length > 1 ? T_LECT : T_MARK;
+        renderPlaylist();
+        renderBookmarks();
+        buildTabs();
+        load();
+    }
+
+    private void cancelAutoNext() {
+        handler.removeCallbacks(ticker);
+        if (nextOverlay != null && nextOverlay.getParent() != null) ((ViewGroup) nextOverlay.getParent()).removeView(nextOverlay);
+        nextOverlay = null;
+    }
+
+    private TextView countdownText;
+
+    private void updateCountdown() {
+        if (countdownText != null) countdownText.setText("Playing in " + countdown + "...");
+    }
+
+    /** The video finished: count down 5 seconds, then play the next lecture of the folder. */
+    private void onVideoEnded() {
+        if (ytControls != null) {
+            float d = ytControls.durationSeconds();
+            if (d > 0) Progress.save(this, lectureId, d, d);
+        }
+        renderPlaylist();
+        int next = index + 1;
+        if (!autoNext() || next >= ids.length || lockedAt(next) || nextOverlay != null) return;
+
+        nextOverlay = new FrameLayout(this);
+        nextOverlay.setBackgroundColor(0xCC000000);
+        nextOverlay.setClickable(true);
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setGravity(Gravity.CENTER);
+        col.setPadding(UI.dp(this, 20), UI.dp(this, 8), UI.dp(this, 20), UI.dp(this, 8));
+        TextView up = UI.tv(this, "UP NEXT", 11, true, UI.TEAL);
+        up.setGravity(Gravity.CENTER);
+        col.addView(up);
+        TextView nt = UI.tv(this, titles[next], 17, true, Color.WHITE);
+        nt.setGravity(Gravity.CENTER);
+        nt.setMaxLines(2);
+        col.addView(nt);
+        countdown = 5;
+        countdownText = UI.tv(this, "", 13, false, 0xCCFFFFFF);
+        countdownText.setGravity(Gravity.CENTER);
+        col.addView(countdownText);
+        updateCountdown();
+        LinearLayout btns = new LinearLayout(this);
+        btns.setGravity(Gravity.CENTER);
+        TextView cancel = UI.pillButton(this, "Cancel", v -> cancelAutoNext());
+        TextView now = UI.iconPill(this, R.drawable.ic_play, "Play now", v -> switchTo(index + 1));
+        btns.addView(cancel, new LinearLayout.LayoutParams(0, -2, 1f));
+        btns.addView(UI.space(this, 1), UI.lp(UI.dp(this, 10), 1));
+        btns.addView(now, new LinearLayout.LayoutParams(0, -2, 1f));
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-1, -2);
+        bp.topMargin = UI.dp(this, 12);
+        col.addView(btns, bp);
+        nextOverlay.addView(col, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
+        videoHolder.addView(nextOverlay, new FrameLayout.LayoutParams(-1, -1));
+        handler.postDelayed(ticker, 1000);
     }
 
     // ---------- loading ----------
     private void load() {
         resumed = false;
+        handler.removeCallbacks(saver);
+        if (player != null) { player.release(); player = null; }
         if (yt != null) { yt.release(); yt = null; }
         ytControls = null;
         videoHolder.removeAllViews();
@@ -225,6 +490,8 @@ public class PlayerActivity extends BaseActivity {
             @Override public void onBack() { getOnBackPressedDispatcher().onBackPressed(); }
         });
         videoHolder.addView(ytControls, new FrameLayout.LayoutParams(-1, -1));
+        ytControls.setOnEnded(this::onVideoEnded);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         player.setMediaItem(MediaItem.fromUri(src.url));
         float from = Progress.resume(this, lectureId);
         if (from > 0) {
@@ -270,6 +537,7 @@ public class PlayerActivity extends BaseActivity {
             @Override public void onBack() { getOnBackPressedDispatcher().onBackPressed(); }
         });
         videoHolder.addView(ytControls, new FrameLayout.LayoutParams(-1, -1));
+        ytControls.setOnEnded(this::onVideoEnded);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         yt.loadVideo(videoId);
@@ -298,8 +566,8 @@ public class PlayerActivity extends BaseActivity {
     private void applyLayout() {
         boolean full = fullscreen || landscape();
         info.setVisibility(full ? View.GONE : View.VISIBLE);
-        if (pdfPanel != null) pdfPanel.setVisibility(full || !pdfOpen ? View.GONE : View.VISIBLE);
-        if (pdfActionBar != null) pdfActionBar.setVisibility(full || pdfOpen ? View.GONE : View.VISIBLE);
+        tabBar.setVisibility(full ? View.GONE : View.VISIBLE);
+        content.setVisibility(full ? View.GONE : View.VISIBLE);
         int w = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
         int h = full ? ViewGroup.LayoutParams.MATCH_PARENT : Math.min(w * 9 / 16, (int) (sh * 0.45f));
         rootCol.removeView(videoHolder);

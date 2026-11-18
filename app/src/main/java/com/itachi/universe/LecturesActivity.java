@@ -166,6 +166,23 @@ public class LecturesActivity extends BaseActivity {
         i.putExtra("title", l.title);
         i.putExtra("subtitle", subject.name + " / " + unit.name);
         i.putExtra("pdf", l.hasPdf);
+        // the other videos in this folder, so the player can list them and play the next one
+        List<Models.Lecture> vids = new ArrayList<>();
+        for (Models.Lecture x : unit.lectures) if (x.hasVideo) vids.add(x);
+        int n = vids.size();
+        int[] ids = new int[n];
+        String[] titles = new String[n];
+        boolean[] frees = new boolean[n], pdfs = new boolean[n];
+        for (int k = 0; k < n; k++) {
+            ids[k] = vids.get(k).id;
+            titles[k] = vids.get(k).title;
+            frees[k] = vids.get(k).free;
+            pdfs[k] = vids.get(k).hasPdf;
+        }
+        i.putExtra("ids", ids);
+        i.putExtra("titles", titles);
+        i.putExtra("frees", frees);
+        i.putExtra("pdfs", pdfs);
         startActivity(i);
     }
 

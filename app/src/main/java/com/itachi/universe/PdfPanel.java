@@ -63,6 +63,8 @@ public class PdfPanel extends LinearLayout {
     private boolean dragging;
     private Runnable onDownload;
     private Runnable onClose;
+    private TextView offlineBtn;
+    private String subtitle = "";
     private final Runnable dim = () -> { if (handle != null && !dragging) handle.animate().alpha(0.4f).setDuration(300).start(); };
 
     public PdfPanel(BaseActivity host, int lectureId, String title, boolean toolbar) {
@@ -75,16 +77,16 @@ public class PdfPanel extends LinearLayout {
         if (toolbar) {
             LinearLayout bar = new LinearLayout(host);
             bar.setGravity(Gravity.CENTER_VERTICAL);
-            bar.setPadding(UI.dp(host, 20), UI.dp(host, 6), UI.dp(host, 8), UI.dp(host, 6));
-            TextView label = UI.tv(host, "PDF notes", 15, true, UI.text(host));
-            bar.addView(label, new LayoutParams(0, -2, 1f));
+            bar.setPadding(UI.dp(host, 12), UI.dp(host, 2), UI.dp(host, 12), UI.dp(host, 2));
+            offlineBtn = UI.textButton(host, "Offline", v -> toggleOffline());
+            bar.addView(offlineBtn, new LayoutParams(0, -2, 1f));
             bar.addView(UI.withIcon(UI.textButton(host, "Save", v -> {
                 if (bytes == null) host.toast("The PDF is still loading.");
                 else if (onDownload != null) onDownload.run();
-            }), R.drawable.ic_download, 15));
-            bar.addView(UI.withIcon(UI.textButton(host, "Open", v -> openIn()), R.drawable.ic_open, 15));
-            bar.addView(UI.withIcon(UI.textButton(host, "Close", v -> { if (onClose != null) onClose.run(); }), R.drawable.ic_close, 15));
+            }), R.drawable.ic_pdf, 15), new LayoutParams(0, -2, 1f));
+            bar.addView(UI.withIcon(UI.textButton(host, "Open", v -> openIn()), R.drawable.ic_open, 15), new LayoutParams(0, -2, 1f));
             addView(bar, UI.matchWrap());
+            refreshOffline();
         }
 
         body = new FrameLayout(host);
@@ -101,6 +103,35 @@ public class PdfPanel extends LinearLayout {
 
     public void setOnDownload(Runnable r) { onDownload = r; }
     public void setOnClose(Runnable r) { onClose = r; }
+    public void setSubtitle(String s) { subtitle = s == null ? "" : s; }
+
+    /** "Offline" saves the PDF inside the app (private, works without internet); tapping again removes it. */
+    private void refreshOffline() {
+        if (offlineBtn == null) return;
+        boolean saved = Downloads.hasPdf(host, lectureId);
+        offlineBtn.setText(saved ? "Saved offline" : "Offline");
+        UI.withIcon(offlineBtn, saved ? R.drawable.ic_check : R.drawable.ic_download, 15);
+    }
+
+    private void toggleOffline() {
+        if (Downloads.hasPdf(host, lectureId)) {
+            new GlassDialog.Builder(host).setTitle("Remove offline PDF?")
+                    .setMessage("You can save it again any time.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Remove", (d, w) -> { Downloads.deletePdf(host, lectureId); refreshOffline(); })
+                    .show();
+        } else if (bytes == null) {
+            host.toast("The PDF is still loading.");
+        } else {
+            try {
+                Downloads.savePdf(host, lectureId, title, subtitle, bytes);
+                refreshOffline();
+                host.toast("Saved. It opens without internet now.");
+            } catch (Exception e) {
+                host.toast("Could not save the PDF.");
+            }
+        }
+    }
 
     public String fileName() { return title.replaceAll("[^A-Za-z0-9._ -]", "_").trim() + ".pdf"; }
 
@@ -110,6 +141,17 @@ public class PdfPanel extends LinearLayout {
         rv = null;
         body.addView(new ProgressBar(host), new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
         host.runJob(() -> {
+            if (Downloads.hasPdf(host, lectureId)) {  // saved on this phone: no internet needed
+                java.io.File f = Downloads.pdfFile(host, lectureId);
+                byte[] data = new byte[(int) f.length()];
+                try (java.io.FileInputStream in = new java.io.FileInputStream(f)) {
+                    int off = 0, n;
+                    while (off < data.length && (n = in.read(data, off, data.length - off)) > 0) off += n;
+                } catch (java.io.IOException e) {
+                    throw new Api.ApiException("Could not read the saved PDF.");
+                }
+                return data;
+            }
             Models.PlaySource src = Api.playSource(lectureId, "pdf");
             return Api.download(MediaLinks.directPdfUrl(src.url), src.headers);
         }, new Api.Callback<byte[]>() {
@@ -143,6 +185,7 @@ public class PdfPanel extends LinearLayout {
             aspect = (float) first.getWidth() / first.getHeight();
             first.close();
             bytes = data;
+            refreshOffline();
         } catch (Exception e) {
             showError("Could not open this PDF.");
             return;

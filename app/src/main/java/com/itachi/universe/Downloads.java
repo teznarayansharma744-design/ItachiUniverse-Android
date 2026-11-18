@@ -77,32 +77,71 @@ public final class Downloads {
         return t / progress.size();
     }
 
+    // ---------- offline PDFs ----------
+    public static File pdfFile(Context c, int id) { return new File(dir(c), "p" + id + ".bin"); }
+    public static boolean hasPdf(Context c, int id) { return pdfFile(c, id).length() > 0; }
+
+    public static void savePdf(Context c, int id, String title, String subtitle, byte[] data) throws IOException {
+        File tmp = new File(dir(c), "p" + id + ".part");
+        try (FileOutputStream o = new FileOutputStream(tmp)) { o.write(data); }
+        if (!tmp.renameTo(pdfFile(c, id))) throw new IOException("Could not save the PDF.");
+        Item it = new Item();
+        it.id = id; it.title = title; it.subtitle = subtitle == null ? "" : subtitle;
+        rememberIn(c, "pdfs", it);
+        ping();
+    }
+
+    public static void deletePdf(Context c, int id) {
+        pdfFile(c, id).delete();
+        JsonArray arr = new JsonArray();
+        for (Item o : listPdfs(c)) if (o.id != id) arr.add(toJson(o));
+        prefs(c).edit().putString("pdfs", arr.toString()).apply();
+        ping();
+    }
+
+    public static List<Item> listPdfs(Context c) {
+        List<Item> out = new ArrayList<>();
+        for (Item it : readItems(c, "pdfs")) {
+            if (hasPdf(c, it.id)) { it.size = pdfFile(c, it.id).length(); out.add(it); }
+        }
+        return out;
+    }
+
     // ---------- list ----------
     private static SharedPreferences prefs(Context c) { return c.getSharedPreferences("downloads", Context.MODE_PRIVATE); }
 
     public static List<Item> list(Context c) {
         List<Item> out = new ArrayList<>();
+        for (Item it : readItems(c, "items")) {
+            if (has(c, it.id)) { it.size = file(c, it.id).length(); out.add(it); }
+        }
+        return out;
+    }
+
+    private static List<Item> readItems(Context c, String key) {
+        List<Item> out = new ArrayList<>();
         try {
-            JsonArray arr = JsonParser.parseString(prefs(c).getString("items", "[]")).getAsJsonArray();
+            JsonArray arr = JsonParser.parseString(prefs(c).getString(key, "[]")).getAsJsonArray();
             for (JsonElement e : arr) {
                 JsonObject o = e.getAsJsonObject();
                 Item it = new Item();
                 it.id = o.get("id").getAsInt();
                 it.title = o.has("title") ? o.get("title").getAsString() : "";
                 it.subtitle = o.has("subtitle") ? o.get("subtitle").getAsString() : "";
-                if (has(c, it.id)) { it.size = file(c, it.id).length(); out.add(it); }
+                out.add(it);
             }
         } catch (Exception ignored) {
         }
         return out;
     }
 
-    private static void remember(Context c, Item it) {
-        List<Item> all = list(c);
+    private static void remember(Context c, Item it) { rememberIn(c, "items", it); }
+
+    private static void rememberIn(Context c, String key, Item it) {
         JsonArray arr = new JsonArray();
-        for (Item o : all) if (o.id != it.id) arr.add(toJson(o));
+        for (Item o : readItems(c, key)) if (o.id != it.id) arr.add(toJson(o));
         arr.add(toJson(it));
-        prefs(c).edit().putString("items", arr.toString()).apply();
+        prefs(c).edit().putString(key, arr.toString()).apply();
     }
 
     private static JsonObject toJson(Item i) {

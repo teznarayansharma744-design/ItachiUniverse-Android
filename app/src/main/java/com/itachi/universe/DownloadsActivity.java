@@ -80,5 +80,31 @@ public class DownloadsActivity extends BaseActivity {
             lp.bottomMargin = UI.dp(this, 12);
             list.addView(card, lp);
         }
+        for (Downloads.Item it : pdfs) {
+            LinearLayout card = UI.card(this, 22, 16, null, null);
+            card.addView(UI.tv(this, it.subtitle.isEmpty() ? "PDF notes" : it.subtitle + "  \u00B7  PDF", 12, true, UI.PINK));
+            card.addView(UI.tv(this, it.title, 17, true, UI.text(this)));
+            card.addView(UI.tv(this, mb(it.size), 12, false, UI.dim(this)));
+            card.addView(UI.space(this, 12));
+            LinearLayout row = new LinearLayout(this);
+            row.addView(UI.iconPill(this, R.drawable.ic_pdf, "Open", v -> {
+                Intent i = new Intent(this, PdfActivity.class);
+                i.putExtra("id", it.id);
+                i.putExtra("title", it.title);
+                i.putExtra("subtitle", it.subtitle);
+                startActivity(i);
+            }), new LinearLayout.LayoutParams(0, -2, 1f));
+            row.addView(UI.space(this, 1), UI.lp(UI.dp(this, 10), 1));
+            row.addView(UI.iconPill(this, R.drawable.ic_trash, "Remove", v -> new GlassDialog.Builder(this)
+                    .setTitle("Remove this PDF?")
+                    .setMessage("You can save it again any time.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Remove", (d, w) -> Downloads.deletePdf(this, it.id))
+                    .show()), new LinearLayout.LayoutParams(0, -2, 1f));
+            card.addView(row, UI.matchWrap());
+            LinearLayout.LayoutParams lp = UI.matchWrap();
+            lp.bottomMargin = UI.dp(this, 12);
+            list.addView(card, lp);
+        }
     }
 }
