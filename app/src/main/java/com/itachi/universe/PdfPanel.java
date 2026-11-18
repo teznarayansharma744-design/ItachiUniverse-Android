@@ -415,36 +415,61 @@ public class PdfPanel extends LinearLayout {
     }
 
     // ---------- pages ----------
+    /** The latest picture of a page and the width it was drawn at. */
+    private static final class Rendered {
+        final Bitmap bmp;
+        final int width;
+        Rendered(Bitmap b, int w) { bmp = b; width = w; }
+    }
+
+    private static final int MAX_RENDER_W = 2000;
+
+    // Pages already drawn are kept, so zooming back out (or scrolling back) shows them instantly
+    // and zooming in shows the old picture, stretched, until the sharper one is ready. No white flash.
+    private final android.util.LruCache<Integer, Rendered> pageCache = new android.util.LruCache<Integer, Rendered>(
+            (int) Math.min(96L * 1024 * 1024, Runtime.getRuntime().maxMemory() / 5)) {
+        @Override protected int sizeOf(Integer key, Rendered r) { return r.bmp.getByteCount(); }
+    };
+
     private class PageAdapter extends RecyclerView.Adapter<PageAdapter.VH> {
         class VH extends RecyclerView.ViewHolder {
             final ImageView img;
             int boundPage = -1;
+            volatile int token;
             VH(ImageView v) { super(v); img = v; }
         }
 
         @Override public VH onCreateViewHolder(ViewGroup parent, int type) {
             ImageView iv = new ImageView(parent.getContext());
-            iv.setBackgroundColor(Color.WHITE);
+            iv.setBackgroundColor(0xFFEDEDF2);   // a quiet grey until the page appears, not a white flash
             iv.setScaleType(ImageView.ScaleType.FIT_XY);
             return new VH(iv);
         }
 
         @Override public void onBindViewHolder(VH h, int position) {
-            int w = pageAreaWidth();
+            final int w = pageAreaWidth();
             int hgt = Math.round(w / aspect);
             RecyclerView.LayoutParams lp = new RecyclerView.LayoutParams(w, hgt);
             lp.bottomMargin = UI.dp(host, 8);
             h.img.setLayoutParams(lp);
-            h.img.setImageDrawable(null);
-            h.boundPage = position;
+
             final int page = position;
+            final int want = Math.min(Math.max(w, 1), MAX_RENDER_W);
+            final int token = ++h.token;
+            Rendered have = pageCache.get(page);
+            if (have != null) h.img.setImageBitmap(have.bmp);          // old picture, stretched, while a sharper one loads
+            else if (h.boundPage != page) h.img.setImageDrawable(null);
+            h.boundPage = page;
+            if (have != null && have.width >= want) return;             // already sharp enough
+
             renderThread.execute(() -> {
+                if (h.token != token || released) return;               // scrolled away or zoomed again: skip the work
                 Bitmap bmp;
                 try {
                     synchronized (PdfPanel.this) {
                         if (renderer == null) return;
-                        int rw = Math.min(Math.max(w, 1), 2800), rh = Math.round(rw / aspect);
-                        bmp = Bitmap.createBitmap(rw, rh, Bitmap.Config.ARGB_8888);
+                        int rh = Math.round(want / aspect);
+                        bmp = Bitmap.createBitmap(want, rh, Bitmap.Config.ARGB_8888);
                         bmp.eraseColor(Color.WHITE);
                         PdfRenderer.Page p = renderer.openPage(page);
                         p.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
@@ -453,7 +478,12 @@ public class PdfPanel extends LinearLayout {
                 } catch (Exception e) {
                     return;
                 }
-                ui.post(() -> { if (h.boundPage == page) h.img.setImageBitmap(bmp); });
+                final Bitmap done = bmp;
+                ui.post(() -> {
+                    if (released) return;
+                    pageCache.put(page, new Rendered(done, want));
+                    if (h.token == token) h.img.setImageBitmap(done);
+                });
             });
         }
 
