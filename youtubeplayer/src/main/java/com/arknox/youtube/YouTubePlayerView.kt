@@ -217,6 +217,15 @@ class YouTubePlayerView @JvmOverloads constructor(
         }
     }
 
+    /** Asks YouTube for a quality: "default" (auto), "hd1080", "hd720", "large", "medium" or "small". YouTube may ignore it. */
+    fun setQuality(level: String) {
+        if (isPageLoaded) {
+            evaluateJavascript(
+                "if(player && player.embed && player.embed.setPlaybackQuality) player.embed.setPlaybackQuality('$level')", null
+            )
+        }
+    }
+
     /** Picture fit: 0 = Fit (letterbox), 1 = Fill (crop), 2 = Stretch. */
     fun setFitMode(mode: Int) {
         if (isPageLoaded) {

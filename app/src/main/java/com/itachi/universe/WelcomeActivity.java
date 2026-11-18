@@ -19,8 +19,8 @@ public class WelcomeActivity extends BaseActivity {
         int dim = UI.dim(this), text = UI.text(this);
 
         // theme switch
-        TextView theme = UI.tv(this, UI.dark(this) ? "\u2600" : "\u263E", 22, false, text);
-        theme.setGravity(Gravity.CENTER);
+        android.widget.ImageView theme = UI.iconView(this, UI.dark(this) ? R.drawable.ic_sun : R.drawable.ic_moon, 24, text);
+        theme.setScaleType(android.widget.ImageView.ScaleType.CENTER);
         theme.setOnClickListener(v -> UI.toggleTheme(this));
         LinearLayout.LayoutParams tp = UI.lp(UI.dp(this, 44), UI.dp(this, 44));
         tp.gravity = Gravity.END;
@@ -42,15 +42,15 @@ public class WelcomeActivity extends BaseActivity {
         col.addView(UI.tv(this, "Learn at your own pace. Subject-wise videos and PDFs, all in one place.", 16, false, dim));
         col.addView(UI.space(this, 36));
 
-        col.addView(option("\u25B6", "Demo Mode", "Browse everything. Only free lectures play.", "DEMO", false, v -> {
+        col.addView(option(R.drawable.ic_play, "Demo Mode", "Browse everything. Only free lectures play.", "DEMO", false, v -> {
             Access.premium = false;
             startActivity(new Intent(this, HomeActivity.class));
         }));
         col.addView(UI.space(this, 16));
-        col.addView(option("⌑", "Enter Premium Key", "Enter your key to unlock the full course", null, true,
+        col.addView(option(R.drawable.ic_key, "Enter Premium Key", "Enter your key to unlock the full course", null, true,
                 v -> startActivity(new Intent(this, KeyActivity.class))));
         col.addView(UI.space(this, 16));
-        col.addView(option("✦", "Get Premium", "Pay in Telegram and get your key instantly", null, false,
+        col.addView(option(R.drawable.ic_star, "Get Premium", "Pay in Telegram and get your key instantly", null, false,
                 v -> openShopBot()));
         col.addView(UI.space(this, 28));
         TextView foot = UI.tv(this, "One key, one device. Your key works only on your phone.", 12, false, dim);
@@ -70,7 +70,7 @@ public class WelcomeActivity extends BaseActivity {
         }
     }
 
-    private View option(String icon, String title, String subtitle, String badge, boolean highlight, View.OnClickListener click) {
+    private View option(int icon, String title, String subtitle, String badge, boolean highlight, View.OnClickListener click) {
         int[] grad = highlight ? new int[]{0xFF4B4BF0, 0xFF2E9BE8} : null;
         LinearLayout card = UI.card(this, 24, 18, grad, click);
         card.setOrientation(LinearLayout.HORIZONTAL);
@@ -78,8 +78,8 @@ public class WelcomeActivity extends BaseActivity {
         int fg = highlight ? 0xFFFFFFFF : UI.text(this);
         int fgDim = highlight ? 0xE6FFFFFF : UI.dim(this);
 
-        TextView tile = UI.tv(this, icon, 20, false, fg);
-        tile.setGravity(Gravity.CENTER);
+        android.widget.ImageView tile = UI.iconView(this, icon, 24, fg);
+        tile.setScaleType(android.widget.ImageView.ScaleType.CENTER);
         tile.setBackground(UI.box((fg & 0x00FFFFFF) | 0x24000000, UI.dp(this, 16), 0, 0));
         card.addView(tile, UI.lp(UI.dp(this, 48), UI.dp(this, 48)));
 
@@ -97,7 +97,7 @@ public class WelcomeActivity extends BaseActivity {
             t.setBackground(UI.box(0x3819C3B1, UI.dp(this, 999), 0, 0));
             card.addView(t);
         } else {
-            card.addView(UI.tv(this, "\u203A", 24, false, fgDim));
+            card.addView(UI.iconView(this, R.drawable.ic_chevron, 20, fgDim));
         }
         card.setLayoutParams(UI.matchWrap());
         return card;

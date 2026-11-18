@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
@@ -18,7 +19,8 @@ import java.util.List;
 
 public class HomeActivity extends BaseActivity {
     private final View[] tabs = new View[4];
-    private final TextView[] navItems = new TextView[4];
+    private final LinearLayout[] navItems = new LinearLayout[4];
+    private static final int[] NAV_ICONS = {R.drawable.ic_home, R.drawable.ic_library, R.drawable.ic_settings, R.drawable.ic_info};
     private final List<LinearLayout> batchLists = new ArrayList<>();
     private final List<SwipeRefreshLayout> refreshers = new ArrayList<>();
 
@@ -39,14 +41,20 @@ public class HomeActivity extends BaseActivity {
         LinearLayout nav = UI.card(this, 24, 8, null, null);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
-        String[] icons = {"⌂", "▤", "⚙", "ⓘ"};
         String[] labels = {"Home", "Library", "Settings", "About"};
         for (int i = 0; i < tabs.length; i++) {
             final int idx = i;
-            TextView t = UI.tv(this, icons[i] + "\n" + labels[i], 11, true, UI.dim(this));
+            LinearLayout t = new LinearLayout(this);
+            t.setOrientation(LinearLayout.VERTICAL);
             t.setGravity(Gravity.CENTER);
-            t.setPadding(UI.dp(this, 6), UI.dp(this, 8), UI.dp(this, 6), UI.dp(this, 8));
+            t.setPadding(UI.dp(this, 6), UI.dp(this, 9), UI.dp(this, 6), UI.dp(this, 8));
+            ImageView ic = UI.iconView(this, NAV_ICONS[i], 22, UI.dim(this));
+            t.addView(ic, UI.lp(UI.dp(this, 22), UI.dp(this, 22)));
+            TextView lb = UI.tv(this, labels[i], 11, true, UI.dim(this));
+            lb.setGravity(Gravity.CENTER);
+            t.addView(lb);
             t.setOnClickListener(v -> select(idx));
+            Motion.press(t);
             navItems[i] = t;
             nav.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         }
@@ -64,7 +72,9 @@ public class HomeActivity extends BaseActivity {
         for (int i = 0; i < tabs.length; i++) {
             tabs[i].setVisibility(i == idx ? View.VISIBLE : View.GONE);
             boolean sel = i == idx;
-            navItems[i].setTextColor(sel ? UI.text(this) : UI.dim(this));
+            int col = sel ? UI.text(this) : UI.dim(this);
+            ((TextView) navItems[i].getChildAt(1)).setTextColor(col);
+            ((ImageView) navItems[i].getChildAt(0)).setImageDrawable(UI.icon(this, NAV_ICONS[i], 22, col));
             if (sel) UI.glassBg(navItems[i], 18, 2.2f); else navItems[i].setBackground(null);
         }
     }
@@ -112,7 +122,12 @@ public class HomeActivity extends BaseActivity {
         col.addView(UI.space(this, 20));
 
         LinearLayout searchCard = UI.card(this, 20, 14, null, v -> startActivity(new Intent(this, SearchActivity.class)));
-        searchCard.addView(UI.tv(this, "⌕  Search lectures", 15, false, dim));
+        searchCard.setOrientation(LinearLayout.HORIZONTAL);
+        searchCard.setGravity(Gravity.CENTER_VERTICAL);
+        searchCard.addView(UI.iconView(this, R.drawable.ic_search, 20, dim));
+        TextView sl = UI.tv(this, "Search lectures", 15, false, dim);
+        sl.setPadding(UI.dp(this, 12), 0, 0, 0);
+        searchCard.addView(sl);
         col.addView(searchCard, UI.matchWrap());
         col.addView(UI.space(this, 16));
 
@@ -186,7 +201,7 @@ public class HomeActivity extends BaseActivity {
         });
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
-        card.addView(UI.iconTile(this, index % 2 == 0 ? "▤" : "✦", batch.tint, 48));
+        card.addView(UI.iconTile(this, index % 2 == 0 ? R.drawable.ic_book : R.drawable.ic_bolt, batch.tint, 48));
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.addView(UI.tv(this, batch.name, 16, true, UI.text(this)));
@@ -194,7 +209,7 @@ public class HomeActivity extends BaseActivity {
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, -2, 1f);
         cp.leftMargin = UI.dp(this, 14);
         card.addView(col, cp);
-        card.addView(UI.tv(this, "\u203A", 24, false, UI.dim(this)));
+        card.addView(UI.iconView(this, R.drawable.ic_chevron, 20, UI.dim(this)));
         LinearLayout.LayoutParams lp = UI.matchWrap();
         lp.bottomMargin = UI.dp(this, 12);
         card.setLayoutParams(lp);
@@ -217,7 +232,7 @@ public class HomeActivity extends BaseActivity {
                 row.setGravity(Gravity.CENTER_VERTICAL);
                 row.addView(UI.tv(HomeActivity.this, text, 14, true, UI.text(HomeActivity.this)),
                         new LinearLayout.LayoutParams(0, -2, 1f));
-                row.addView(UI.textButton(HomeActivity.this, "\u2715", v -> {
+                row.addView(UI.textButton(HomeActivity.this, "Dismiss", v -> {
                     prefs.edit().putString("ann_dismissed", String.valueOf(text.hashCode())).apply();
                     announceBox.removeAllViews();
                 }));
@@ -291,7 +306,7 @@ public class HomeActivity extends BaseActivity {
         dlText.addView(UI.tv(this, "Downloads", 16, true, text));
         dlText.addView(UI.tv(this, "Lectures saved for offline watching", 13, false, dim));
         dl.addView(dlText, new LinearLayout.LayoutParams(0, -2, 1f));
-        dl.addView(UI.tv(this, "\u203A", 24, true, dim));
+        dl.addView(UI.iconView(this, R.drawable.ic_chevron, 20, dim));
         col.addView(dl, UI.matchWrap());
         col.addView(UI.space(this, 12));
 

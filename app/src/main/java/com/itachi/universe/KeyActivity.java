@@ -58,7 +58,12 @@ public class KeyActivity extends BaseActivity {
         col.addView(UI.space(this, 20));
 
         LinearLayout info = UI.card(this, 20, 16, null, null);
-        info.addView(UI.tv(this, "▣  One key works on one device only. If you switch phones, you will need a new key for the new Device ID.", 13, false, dim));
+        info.setOrientation(LinearLayout.HORIZONTAL);
+        info.setGravity(Gravity.CENTER_VERTICAL);
+        info.addView(UI.iconView(this, R.drawable.ic_shield, 22, UI.TEAL));
+        TextView note = UI.tv(this, "One key works on one device only. If you switch phones, you will need a new key for the new Device ID.", 13, false, dim);
+        note.setPadding(UI.dp(this, 12), 0, 0, 0);
+        info.addView(note, new LinearLayout.LayoutParams(0, -2, 1f));
         col.addView(info, UI.matchWrap());
 
         setScreen(scroll(col));

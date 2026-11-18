@@ -7,7 +7,7 @@ import android.view.View;
 import android.widget.LinearLayout;
 
 public class SubjectsActivity extends BaseActivity {
-    static final String[] SUBJECT_ICONS = {"ϟ", "⚗", "∑", "❋"};
+    static final int[] SUBJECT_ICONS = {R.drawable.ic_bolt, R.drawable.ic_flask, R.drawable.ic_sigma, R.drawable.ic_leaf};
 
     @Override
     protected void onCreate(Bundle b) {

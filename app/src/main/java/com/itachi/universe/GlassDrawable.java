@@ -20,9 +20,8 @@ public class GlassDrawable extends Drawable {
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint tintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint top = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
-    private final float radius, stroke, lift;
+    private final float radius, stroke;
     private final boolean dark;
     private final int tint;
     private final float strength;
@@ -34,11 +33,8 @@ public class GlassDrawable extends Drawable {
         this.tint = tint;
         this.strength = strength;
         this.stroke = Math.max(1f, UI.dp(c, 1));
-        this.lift = UI.dp(c, 1);
         rim.setStyle(Paint.Style.STROKE);
         rim.setStrokeWidth(stroke);
-        top.setStyle(Paint.Style.STROKE);
-        top.setStrokeWidth(stroke);
     }
 
     private static int a(int color, float alphaMul) {
@@ -46,34 +42,36 @@ public class GlassDrawable extends Drawable {
         return (color & 0x00FFFFFF) | (al << 24);
     }
 
+    private final RectF inner = new RectF();
+
     @Override protected void onBoundsChange(android.graphics.Rect b) {
         float h = stroke / 2f;
-        rect.set(b.left + h, b.top + h, b.right - h, b.bottom - h);
+        rect.set(b.left + h, b.top + h, b.right - h, b.bottom - h);           // the thin rim sits on the edge
+        inner.set(b.left + stroke, b.top + stroke, b.right - stroke, b.bottom - stroke); // the glass stops where the rim starts
         if (rect.width() <= 0 || rect.height() <= 0) return;
-        int s0 = dark ? 0x30FFFFFF : 0xB0FFFFFF, s1 = dark ? 0x0CFFFFFF : 0x50FFFFFF;
+        int s0 = dark ? 0x2AFFFFFF : 0xA6FFFFFF, s1 = dark ? 0x0DFFFFFF : 0x55FFFFFF;
         fill.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom,
                 a(s0, strength), a(s1, strength), Shader.TileMode.CLAMP));
         if (tint != 0) {
             tintPaint.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom,
-                    a(tint, dark ? 1f : 0.8f), tint & 0x00FFFFFF, Shader.TileMode.CLAMP));
+                    a(tint, dark ? 0.9f : 0.7f), tint & 0x00FFFFFF, Shader.TileMode.CLAMP));
         }
-        int r0 = dark ? 0x70FFFFFF : 0xFFFFFFFF, r1 = dark ? 0x14FFFFFF : 0x60FFFFFF;
-        rim.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom,
-                a(r0, Math.min(1.4f, strength)), r1, Shader.TileMode.CLAMP));
-        float x0 = rect.left + radius, x1 = rect.right - radius;
-        if (x1 > x0) {
-            int hl = dark ? 0x66FFFFFF : 0xFFFFFFFF;
-            top.setShader(new LinearGradient(x0, 0, x1, 0, new int[]{hl & 0x00FFFFFF, hl, hl & 0x00FFFFFF},
-                    null, Shader.TileMode.CLAMP));
-        }
+        // a soft rim: lit at the top left, nearly gone along the sides, a faint echo at the bottom right
+        int[] rc = dark ? new int[]{0x52FFFFFF, 0x12FFFFFF, 0x12FFFFFF, 0x2AFFFFFF}
+                        : new int[]{0xFFFFFFFF, 0x80FFFFFF, 0x80FFFFFF, 0xC0FFFFFF};
+        float k = Math.min(1.25f, strength);
+        for (int i = 0; i < rc.length; i++) rc[i] = a(rc[i], k);
+        rim.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom, rc,
+                new float[]{0f, 0.3f, 0.7f, 1f}, Shader.TileMode.CLAMP));
     }
 
     @Override public void draw(Canvas cv) {
         if (rect.width() <= 0) return;
-        cv.drawRoundRect(rect, radius, radius, fill);
-        if (tint != 0) cv.drawRoundRect(rect, radius, radius, tintPaint);
-        cv.drawRoundRect(rect, radius, radius, rim);
-        if (rect.width() > radius * 2) cv.drawLine(rect.left + radius, rect.top + lift + stroke, rect.right - radius, rect.top + lift + stroke, top);
+        float ri = Math.max(0f, radius - stroke);
+        cv.drawRoundRect(inner, ri, ri, fill);
+        if (tint != 0) cv.drawRoundRect(inner, ri, ri, tintPaint);
+        float r = Math.max(0f, radius - stroke / 2f);
+        cv.drawRoundRect(rect, r, r, rim);
     }
 
     @Override public void getOutline(Outline o) { o.setRoundRect(getBounds(), radius); }

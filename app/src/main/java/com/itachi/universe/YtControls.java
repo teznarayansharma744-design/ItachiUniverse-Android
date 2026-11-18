@@ -18,18 +18,25 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.arknox.youtube.YouTubePlayerListener;
 import com.arknox.youtube.YouTubePlayerView;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.Player;
+import androidx.media3.common.TrackSelectionOverride;
+import androidx.media3.common.Tracks;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.ui.AspectRatioFrameLayout;
 import androidx.media3.ui.PlayerView;
 import androidx.media3.exoplayer.ExoPlayer;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -48,7 +55,11 @@ public class YtControls extends FrameLayout {
         void onBack();
     }
 
-    private static final float[] SPEEDS = {0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f};
+    /** Every speed the player can offer. YouTube itself stops at 2x; saved and direct videos go up to 4x. */
+    private static final float[] SPEEDS = {0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 2.5f, 3f, 3.5f, 4f};
+    private static final float YT_MAX_SPEED = 2f;
+    private static final String[] YT_QUALITY = {"Auto", "1080p", "720p", "480p", "360p", "240p"};
+    private static final String[] YT_QUALITY_KEY = {"default", "hd1080", "hd720", "large", "medium", "small"};
     private static final String[] FIT_NAMES = {"Fit", "Fill", "Stretch"};
     private static final int NONE = 0, SEEK = 1, BRIGHT = 2, VOL = 3;
     private static final long HIDE_MS = 3500;
@@ -65,12 +76,14 @@ public class YtControls extends FrameLayout {
     private int maxVol;
 
     private FrameLayout controls;
-    private TextView playBtn, curTime, durTime, speedBtn, fitBtn, fsBtn, lockBtn, unlockBtn, hud;
+    private ImageView playBtn, fsBtn, lockBtn, unlockBtn;
+    private TextView curTime, durTime, speedBtn, fitBtn, qualBtn, hud;
     private SeekBar seek;
 
     private boolean playing, ended, locked, shown = true, userSeeking, longPress;
     private float pos, dur;
-    private int speedIdx = 2, fitMode = 0;
+    private int speedIdx = 3, fitMode = 0, ytQualityIdx = 0;
+    private int exoQualityHeight = 0;  // 0 = automatic
 
     // drag state
     private int mode = NONE;
@@ -184,6 +197,38 @@ public class YtControls extends FrameLayout {
         return t;
     }
 
+    /** A round dark button holding a line icon. */
+    private ImageView iconRound(int res, int iconDp, int sizeDp) {
+        ImageView v = new ImageView(getContext());
+        v.setScaleType(ImageView.ScaleType.CENTER);
+        v.setImageDrawable(UI.icon(getContext(), res, iconDp, Color.WHITE));
+        v.setBackground(UI.box(0x66000000, dp(sizeDp), 0, 0));
+        v.setLayoutParams(new LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp)));
+        return v;
+    }
+
+    /** Same, for the 10 second jumps: the arrow with the number inside. */
+    private FrameLayout skipButton(boolean forward) {
+        FrameLayout f = new FrameLayout(getContext());
+        f.setBackground(UI.box(0x66000000, dp(44), 0, 0));
+        ImageView ic = new ImageView(getContext());
+        ic.setScaleType(ImageView.ScaleType.CENTER);
+        ic.setImageDrawable(UI.icon(getContext(), forward ? R.drawable.ic_forward : R.drawable.ic_rewind, 26, Color.WHITE));
+        f.addView(ic, new FrameLayout.LayoutParams(-1, -1));
+        TextView n = txt("10", 9);
+        f.addView(n, new FrameLayout.LayoutParams(-1, -1));
+        f.setLayoutParams(new LinearLayout.LayoutParams(dp(44), dp(44)));
+        return f;
+    }
+
+    private TextView pillLabel(String text, int minWidthDp) {
+        TextView t = txt(text, 12);
+        t.setPadding(dp(10), 0, dp(10), 0);
+        UI.glassBg(t, 14, 1.4f);
+        t.setMinWidth(dp(minWidthDp));
+        return t;
+    }
+
     private TextView round(String s, float sp, int sizeDp) {
         TextView t = txt(s, sp);
         t.setBackground(UI.box(0x66000000, dp(sizeDp), 0, 0));
@@ -207,7 +252,9 @@ public class YtControls extends FrameLayout {
         LinearLayout topRow = new LinearLayout(c);
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
-        TextView back = txt("\u2190", 22);
+        ImageView back = new ImageView(c);
+        back.setScaleType(ImageView.ScaleType.CENTER);
+        back.setImageDrawable(UI.icon(c, R.drawable.ic_back, 22, Color.WHITE));
         back.setOnClickListener(v -> host.onBack());
         topRow.addView(back, new LinearLayout.LayoutParams(dp(44), dp(40)));
         TextView ttl = txt(title, 14);
@@ -221,11 +268,11 @@ public class YtControls extends FrameLayout {
         LinearLayout center = new LinearLayout(c);
         center.setOrientation(LinearLayout.HORIZONTAL);
         center.setGravity(Gravity.CENTER);
-        TextView b10 = round("\u21BA 10", 12, 44);
+        FrameLayout b10 = skipButton(false);
         b10.setOnClickListener(v -> { skip(-10); scheduleHide(); });
-        playBtn = round("\u25B6", 22, 56);
+        playBtn = iconRound(R.drawable.ic_play, 28, 56);
         playBtn.setOnClickListener(v -> { togglePlay(); scheduleHide(); });
-        TextView f10 = round("10 \u21BB", 12, 44);
+        FrameLayout f10 = skipButton(true);
         f10.setOnClickListener(v -> { skip(10); scheduleHide(); });
         LinearLayout.LayoutParams m = new LinearLayout.LayoutParams(dp(44), dp(44));
         m.setMargins(dp(18), 0, dp(18), 0);
@@ -238,7 +285,7 @@ public class YtControls extends FrameLayout {
         controls.addView(center, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
 
         // lock button (left, middle)
-        lockBtn = round("▣", 15, 40);
+        lockBtn = iconRound(R.drawable.ic_lock, 18, 40);
         lockBtn.setOnClickListener(v -> lock());
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(dp(40), dp(40), Gravity.START | Gravity.CENTER_VERTICAL);
         lp.setMargins(dp(10), 0, 0, 0);
@@ -285,28 +332,33 @@ public class YtControls extends FrameLayout {
         LinearLayout row2 = new LinearLayout(c);
         row2.setOrientation(LinearLayout.HORIZONTAL);
         row2.setGravity(Gravity.CENTER_VERTICAL);
-        speedBtn = txt("1x", 12);
-        speedBtn.setBackground(UI.box(0x66000000, dp(14), 0, 0));
-        speedBtn.setOnClickListener(v -> cycleSpeed());
-        fitBtn = txt(FIT_NAMES[0], 12);
-        fitBtn.setBackground(UI.box(0x66000000, dp(14), 0, 0));
+        speedBtn = pillLabel("1x", 46);
+        speedBtn.setOnClickListener(v -> showSpeedMenu());
+        qualBtn = pillLabel("Auto", 56);
+        qualBtn.setOnClickListener(v -> showQualityMenu());
+        fitBtn = pillLabel(FIT_NAMES[0], 56);
         fitBtn.setOnClickListener(v -> cycleFit());
-        fsBtn = txt("\u26F6", 18);
+        fsBtn = new ImageView(c);
+        fsBtn.setScaleType(ImageView.ScaleType.CENTER);
+        fsBtn.setImageDrawable(UI.icon(c, R.drawable.ic_fullscreen, 22, Color.WHITE));
         fsBtn.setOnClickListener(v -> { host.toggleFullscreen(); scheduleHide(); });
-        LinearLayout.LayoutParams sp1 = new LinearLayout.LayoutParams(dp(52), dp(28));
-        LinearLayout.LayoutParams sp2 = new LinearLayout.LayoutParams(dp(64), dp(28));
+        LinearLayout.LayoutParams sp1 = new LinearLayout.LayoutParams(-2, dp(28));
+        LinearLayout.LayoutParams sp2 = new LinearLayout.LayoutParams(-2, dp(28));
+        LinearLayout.LayoutParams sp3 = new LinearLayout.LayoutParams(-2, dp(28));
         sp2.setMargins(dp(8), 0, 0, 0);
+        sp3.setMargins(dp(8), 0, 0, 0);
         row2.addView(speedBtn, sp1);
-        row2.addView(fitBtn, sp2);
+        row2.addView(qualBtn, sp2);
+        row2.addView(fitBtn, sp3);
         row2.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
-        row2.addView(fsBtn, new LinearLayout.LayoutParams(dp(40), dp(32)));
+        row2.addView(fsBtn, new LinearLayout.LayoutParams(dp(44), dp(32)));
         bottom.addView(row2, new LinearLayout.LayoutParams(-1, -2));
         controls.addView(bottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
 
         addView(controls, new FrameLayout.LayoutParams(-1, -1));
 
         // shown only while the screen is locked (after a tap)
-        unlockBtn = round("□", 15, 40);
+        unlockBtn = iconRound(R.drawable.ic_unlock, 18, 40);
         unlockBtn.setVisibility(View.GONE);
         unlockBtn.setOnClickListener(v -> unlock());
         FrameLayout.LayoutParams up = new FrameLayout.LayoutParams(dp(40), dp(40), Gravity.START | Gravity.CENTER_VERTICAL);
@@ -401,7 +453,7 @@ public class YtControls extends FrameLayout {
             case BRIGHT: {
                 float v = clamp(levelBase - dy / range, 0.02f, 1f);
                 setBrightness(v);
-                showHud("\u2600  Brightness " + Math.round(v * 100) + "%", 0);
+                showHud("Brightness " + Math.round(v * 100) + "%", 0);
                 break;
             }
             case VOL: {
@@ -457,16 +509,89 @@ public class YtControls extends FrameLayout {
         mediaSeek(t);
         pos = t;
         updateSeek();
-        showHud(sec > 0 ? "\u25B6\u25B6  +" + sec + "s" : "\u25C0\u25C0  " + sec + "s", 600);
+        showHud(sec > 0 ? "+" + sec + "s" : sec + "s", 600);
     }
 
-    private void cycleSpeed() {
-        speedIdx = (speedIdx + 1) % SPEEDS.length;
-        float s = SPEEDS[speedIdx];
-        mediaSpeed(s);
-        speedBtn.setText(speedLabel(s));
-        showHud("Speed " + speedLabel(s), 700);
-        scheduleHide();
+    private void applySpeed(float sp) {
+        for (int i = 0; i < SPEEDS.length; i++) if (SPEEDS[i] == sp) speedIdx = i;
+        mediaSpeed(sp);
+        speedBtn.setText(speedLabel(sp));
+        showHud("Speed " + speedLabel(sp), 700);
+    }
+
+    /** A list of every speed, up to 4x (YouTube's own player stops at 2x). */
+    private void showSpeedMenu() {
+        h.removeCallbacks(autoHide);
+        int max = yt != null ? (int) (YT_MAX_SPEED * 100) : 400;
+        List<Float> list = new ArrayList<>();
+        for (float sp : SPEEDS) if ((int) (sp * 100) <= max) list.add(sp);
+        String[] names = new String[list.size()];
+        int checked = 0;
+        for (int i = 0; i < names.length; i++) {
+            names[i] = list.get(i) == 1f ? "Normal" : speedLabel(list.get(i));
+            if (list.get(i) == SPEEDS[speedIdx]) checked = i;
+        }
+        GlassDialog.menu(act, yt != null ? "Playback speed (YouTube max 2x)" : "Playback speed", names, checked, i -> {
+            applySpeed(list.get(i));
+            scheduleHide();
+        });
+    }
+
+    private void showQualityMenu() {
+        h.removeCallbacks(autoHide);
+        if (yt != null) {
+            GlassDialog.menu(act, "Video quality", YT_QUALITY, ytQualityIdx, i -> {
+                ytQualityIdx = i;
+                yt.setQuality(YT_QUALITY_KEY[i]);
+                qualBtn.setText(YT_QUALITY[i]);
+                showHud("Quality " + YT_QUALITY[i] + " (YouTube may adjust it)", 1400);
+                scheduleHide();
+            });
+            return;
+        }
+        if (exo == null) return;
+        // collect the video qualities this file or stream really contains
+        final List<Integer> heights = new ArrayList<>();
+        final List<TrackSelectionOverride> overrides = new ArrayList<>();
+        for (Tracks.Group g : exo.getCurrentTracks().getGroups()) {
+            if (g.getType() != C.TRACK_TYPE_VIDEO) continue;
+            for (int i = 0; i < g.length; i++) {
+                if (!g.isTrackSupported(i)) continue;
+                Format f = g.getTrackFormat(i);
+                if (f.height <= 0 || heights.contains(f.height)) continue;
+                int at = 0;
+                while (at < heights.size() && heights.get(at) > f.height) at++;
+                heights.add(at, f.height);
+                overrides.add(at, new TrackSelectionOverride(g.getMediaTrackGroup(), i));
+            }
+        }
+        if (heights.size() < 2) {
+            showHud(heights.isEmpty() ? "Quality is not available yet" : "This video has only one quality (" + heights.get(0) + "p)", 1600);
+            scheduleHide();
+            return;
+        }
+        String[] names = new String[heights.size() + 1];
+        names[0] = "Auto";
+        int checked = 0;
+        for (int i = 0; i < heights.size(); i++) {
+            names[i + 1] = heights.get(i) + "p";
+            if (heights.get(i) == exoQualityHeight) checked = i + 1;
+        }
+        GlassDialog.menu(act, "Video quality", names, checked, i -> {
+            androidx.media3.common.TrackSelectionParameters.Builder b = exo.getTrackSelectionParameters().buildUpon();
+            if (i == 0) {
+                exoQualityHeight = 0;
+                b.clearOverridesOfType(C.TRACK_TYPE_VIDEO);
+                qualBtn.setText("Auto");
+            } else {
+                exoQualityHeight = heights.get(i - 1);
+                b.setOverrideForType(overrides.get(i - 1));
+                qualBtn.setText(exoQualityHeight + "p");
+            }
+            exo.setTrackSelectionParameters(b.build());
+            showHud("Quality " + names[i], 900);
+            scheduleHide();
+        });
     }
 
     private void cycleFit() {
@@ -531,7 +656,7 @@ public class YtControls extends FrameLayout {
     // ------------------------------------------------------------------ state -> views
 
     private void updatePlayIcon() {
-        playBtn.setText(ended ? "\u21BA" : (playing ? "\u275A\u275A" : "\u25B6"));
+        playBtn.setImageDrawable(UI.icon(getContext(), ended ? R.drawable.ic_replay : (playing ? R.drawable.ic_pause : R.drawable.ic_play), 28, Color.WHITE));
     }
 
     private void updateSeek() {

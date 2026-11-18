@@ -38,6 +38,7 @@ public class GlassDialog extends Dialog {
         boolean cancelable = true;
         String[] items;
         IntConsumer onItem;
+        int checked = -1;
     }
 
     public static class Builder {
@@ -57,7 +58,13 @@ public class GlassDialog extends Dialog {
 
     /** A small glass menu (replaces PopupMenu). */
     public static void menu(Context ctx, String title, String[] items, IntConsumer onPick) {
+        menu(ctx, title, items, -1, onPick);
+    }
+
+    /** Same, with a check mark on the item that is currently selected. */
+    public static void menu(Context ctx, String title, String[] items, int checked, IntConsumer onPick) {
         Content c = new Content();
+        c.checked = checked;
         c.title = title;
         c.items = items;
         c.onItem = onPick;
@@ -158,9 +165,12 @@ public class GlassDialog extends Dialog {
             for (int i = 0; i < spec.items.length; i++) {
                 final int idx = i;
                 boolean danger = spec.items[i].toLowerCase().startsWith("delete") || spec.items[i].toLowerCase().startsWith("revoke");
-                TextView row = UI.tv(c, spec.items[i], 16, true, danger ? 0xFFFF6B7A : text);
-                row.setPadding(UI.dp(c, 14), UI.dp(c, 14), UI.dp(c, 14), UI.dp(c, 14));
-                row.setBackground(UI.box(dark ? 0x14FFFFFF : 0x12000000, UI.dp(c, 16), 0, 0));
+                LinearLayout row = new LinearLayout(c);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.addView(UI.tv(c, spec.items[i], 16, true, danger ? 0xFFFF6B7A : text), new LinearLayout.LayoutParams(0, -2, 1f));
+                if (idx == spec.checked) row.addView(UI.iconView(c, R.drawable.ic_check, 18, UI.TEAL));
+                row.setPadding(UI.dp(c, 16), UI.dp(c, 13), UI.dp(c, 14), UI.dp(c, 13));
+                row.setBackground(idx == spec.checked ? new GlassDrawable(c, UI.dp(c, 16), 0, 2f) : UI.box(dark ? 0x14FFFFFF : 0x12000000, UI.dp(c, 16), 0, 0));
                 row.setOnClickListener(v -> { dismiss(); if (spec.onItem != null) spec.onItem.accept(idx); });
                 Motion.press(row);
                 LinearLayout.LayoutParams lp = UI.matchWrap();

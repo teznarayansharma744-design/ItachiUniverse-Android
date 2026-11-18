@@ -175,8 +175,8 @@ public class AdminAboutActivity extends BaseActivity {
 
             LinearLayout row = new LinearLayout(this);
             row.addView(UI.textButton(this, "Edit", v -> editSection(idx)));
-            row.addView(UI.textButton(this, "↑", v -> move(idx, -1)));
-            row.addView(UI.textButton(this, "↓", v -> move(idx, 1)));
+            row.addView(UI.withIcon(UI.textButton(this, "Up", v -> move(idx, -1)), R.drawable.ic_up, 14));
+            row.addView(UI.withIcon(UI.textButton(this, "Down", v -> move(idx, 1)), R.drawable.ic_down, 14));
             row.addView(UI.textButton(this, "Delete", v -> confirmDelete(idx)));
             card.addView(row);
             LinearLayout.LayoutParams lp = UI.matchWrap();

@@ -51,9 +51,9 @@ public class UnitsActivity extends BaseActivity {
         if (Access.isDemo() && unit.freeCount() > 0) {
             card.addView(UI.tv(this, unit.freeCount() + " FREE", 11, true, UI.TEAL));
         } else if (Access.isDemo()) {
-            card.addView(UI.tv(this, "▣", 15, false, UI.text(this)));
+            card.addView(UI.iconView(this, R.drawable.ic_lock, 16, UI.dim(this)));
         }
-        TextView arrow = UI.tv(this, "\u203A", 24, false, UI.dim(this));
+        android.widget.ImageView arrow = UI.iconView(this, R.drawable.ic_chevron, 20, UI.dim(this));
         arrow.setPadding(UI.dp(this, 6), 0, 0, 0);
         card.addView(arrow);
 

@@ -109,6 +109,7 @@ public final class Updater {
     private static void showUpdate(Activity a, Info i) {
         String msg = "Version " + i.name + " is ready to install.";
         if (!i.notes.isEmpty()) msg += "\n\n" + i.notes;
+        msg += "\n\nIf Android says \"Blocked by Play Protect\", tap More details, then Install anyway.";
         new GlassDialog.Builder(a)
                 .setTitle("Update available")
                 .setMessage(msg)

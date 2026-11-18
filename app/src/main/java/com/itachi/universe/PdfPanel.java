@@ -78,12 +78,12 @@ public class PdfPanel extends LinearLayout {
             bar.setPadding(UI.dp(host, 20), UI.dp(host, 6), UI.dp(host, 8), UI.dp(host, 6));
             TextView label = UI.tv(host, "PDF notes", 15, true, UI.text(host));
             bar.addView(label, new LayoutParams(0, -2, 1f));
-            bar.addView(UI.textButton(host, "↓ Save", v -> {
+            bar.addView(UI.withIcon(UI.textButton(host, "Save", v -> {
                 if (bytes == null) host.toast("The PDF is still loading.");
                 else if (onDownload != null) onDownload.run();
-            }));
-            bar.addView(UI.textButton(host, "↗ Open", v -> openIn()));
-            bar.addView(UI.textButton(host, "✕ Close", v -> { if (onClose != null) onClose.run(); }));
+            }), R.drawable.ic_download, 15));
+            bar.addView(UI.withIcon(UI.textButton(host, "Open", v -> openIn()), R.drawable.ic_open, 15));
+            bar.addView(UI.withIcon(UI.textButton(host, "Close", v -> { if (onClose != null) onClose.run(); }), R.drawable.ic_close, 15));
             addView(bar, UI.matchWrap());
         }
 

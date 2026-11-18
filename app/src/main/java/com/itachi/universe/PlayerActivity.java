@@ -130,7 +130,7 @@ public class PlayerActivity extends BaseActivity {
             pdfActionBar = new LinearLayout(this);
             pdfActionBar.setGravity(Gravity.CENTER_VERTICAL);
             pdfActionBar.setPadding(UI.dp(this, 20), UI.dp(this, 10), UI.dp(this, 20), UI.dp(this, 4));
-            TextView openPdf = UI.pillButton(this, "▤  Open PDF", v -> showPdf());
+            TextView openPdf = UI.iconPill(this, R.drawable.ic_pdf, "Open PDF notes", v -> showPdf());
             pdfActionBar.addView(openPdf, new LinearLayout.LayoutParams(-1, -2));
             rootCol.addView(pdfActionBar, UI.matchWrap());
 

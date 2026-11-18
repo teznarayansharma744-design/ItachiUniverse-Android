@@ -211,8 +211,9 @@ public class AdminPanelActivity extends BaseActivity {
         chip.setBackground(UI.box((color & 0x00FFFFFF) | 0x30000000, UI.dp(this, 999), 0, 0));
         top.addView(chip);
 
-        TextView more = UI.tv(this, "\u22EE", 22, true, UI.text(this));
-        more.setPadding(UI.dp(this, 12), 0, UI.dp(this, 4), 0);
+        android.widget.ImageView more = UI.iconView(this, R.drawable.ic_more, 22, UI.text(this));
+        more.setScaleType(android.widget.ImageView.ScaleType.CENTER);
+        more.setLayoutParams(UI.lp(UI.dp(this, 44), UI.dp(this, 40)));
         more.setOnClickListener(v -> showMenu(v, k));
         top.addView(more);
         card.addView(top, UI.matchWrap());

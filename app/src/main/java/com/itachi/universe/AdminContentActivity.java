@@ -181,8 +181,9 @@ public class AdminContentActivity extends BaseActivity {
         col.addView(UI.tv(this, subtitle(m), 12, false, UI.dim(this)));
         card.addView(col, new LinearLayout.LayoutParams(0, -2, 1f));
 
-        TextView more = UI.tv(this, "\u22EE", 22, true, UI.text(this));
-        more.setPadding(UI.dp(this, 12), 0, UI.dp(this, 4), 0);
+        android.widget.ImageView more = UI.iconView(this, R.drawable.ic_more, 22, UI.text(this));
+        more.setScaleType(android.widget.ImageView.ScaleType.CENTER);
+        more.setLayoutParams(UI.lp(UI.dp(this, 44), UI.dp(this, 40)));
         more.setOnClickListener(v -> {
             final boolean sub = level() < 3;
             GlassDialog.menu(this, null, new String[]{sub ? "Rename" : "Edit", "Delete"}, i -> {

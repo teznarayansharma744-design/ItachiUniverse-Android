@@ -28,9 +28,10 @@ public class LecturesActivity extends BaseActivity {
 
     private void styleDl(int id, TextView b) {
         int p = Downloads.progress(id);
-        if (p >= 0) b.setText("Downloading " + p + "%  \u00B7  tap to cancel");
-        else if (Downloads.has(this, id)) b.setText("\u2713  Saved offline  \u00B7  tap to remove");
-        else b.setText("\u2B07  Download");
+        int col = b.getCurrentTextColor();
+        if (p >= 0) { b.setText("Downloading " + p + "%  \u00B7  tap to cancel"); UI.withIcon(b, R.drawable.ic_close, 16); }
+        else if (Downloads.has(this, id)) { b.setText("Saved offline  \u00B7  tap to remove"); UI.withIcon(b, R.drawable.ic_check, 16); }
+        else { b.setText("Download"); UI.withIcon(b, R.drawable.ic_download, 16); }
     }
 
     private void onDlTap(Models.Lecture l) {
@@ -117,29 +118,29 @@ public class LecturesActivity extends BaseActivity {
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.addView(UI.iconTile(this, pdfOnly ? "▤" : "\u25B6", pdfOnly ? UI.PINK : UI.INDIGO, 40));
+        top.addView(UI.iconTile(this, pdfOnly ? R.drawable.ic_pdf : R.drawable.ic_play, pdfOnly ? UI.PINK : UI.INDIGO, 40));
         TextView title = UI.tv(this, l.title, 16, true, UI.text(this));
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
         tp.leftMargin = UI.dp(this, 12);
         top.addView(title, tp);
         if (l.hasVideo && Progress.watched(this, l.id)) {
-            top.addView(UI.tv(this, "\u2713 Watched", 11, true, UI.TEAL));
+            top.addView(UI.withIcon(UI.tv(this, "Watched", 11, true, UI.TEAL), R.drawable.ic_check, 13));
         } else if (l.hasVideo && Progress.percent(this, l.id) > 0) {
             top.addView(UI.tv(this, Progress.percent(this, l.id) + "%", 11, true, UI.INDIGO));
         } else if (Access.isDemo() && l.free) top.addView(UI.tv(this, "FREE", 11, true, UI.TEAL));
-        else if (locked) top.addView(UI.tv(this, "▣", 15, false, UI.dim(this)));
+        else if (locked) top.addView(UI.iconView(this, R.drawable.ic_lock, 17, UI.dim(this)));
         card.addView(top, UI.matchWrap());
         card.addView(UI.space(this, 12));
 
         LinearLayout actions = new LinearLayout(this);
         if (l.hasVideo) {
-            actions.addView(UI.pillButton(this, locked ? "▣  Play video" : "▷  Play video",
+            actions.addView(UI.iconPill(this, locked ? R.drawable.ic_lock : R.drawable.ic_play, "Play video",
                     v -> { if (locked) Access.showPremiumRequired(this); else play(l); }),
                     new LinearLayout.LayoutParams(0, -2, 1f));
         }
         if (l.hasVideo && l.hasPdf) actions.addView(UI.space(this, 1), UI.lp(UI.dp(this, 10), 1));
         if (l.hasPdf) {
-            actions.addView(UI.pillButton(this, locked ? "▣  View PDF" : "▤  View PDF",
+            actions.addView(UI.iconPill(this, locked ? R.drawable.ic_lock : R.drawable.ic_pdf, "View PDF",
                     v -> { if (locked) Access.showPremiumRequired(this); else openPdf(l); }),
                     new LinearLayout.LayoutParams(0, -2, 1f));
         }

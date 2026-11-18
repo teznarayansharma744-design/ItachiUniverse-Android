@@ -21,6 +21,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -128,6 +129,52 @@ public final class UI {
         v.setBackground(new GlassDrawable(c, dp(c, radiusDp), 0, strength));
     }
 
+    // ---------- icons ----------
+    /** A tinted vector icon of the given size, ready to be used as a compound drawable. */
+    public static android.graphics.drawable.Drawable icon(Context c, int res, int sizeDp, int color) {
+        android.graphics.drawable.Drawable d = androidx.core.content.ContextCompat.getDrawable(c, res).mutate();
+        androidx.core.graphics.drawable.DrawableCompat.setTint(d, color);
+        int px = dp(c, sizeDp);
+        d.setBounds(0, 0, px, px);
+        return d;
+    }
+
+    public static ImageView iconView(Context c, int res, int sizeDp, int color) {
+        ImageView v = new ImageView(c);
+        v.setImageDrawable(icon(c, res, sizeDp, color));
+        v.setLayoutParams(lp(dp(c, sizeDp), dp(c, sizeDp)));
+        return v;
+    }
+
+    /** Puts an icon in front of the text of a button or label, tinted like the text. */
+    public static TextView withIcon(TextView t, int res, int sizeDp) {
+        Context c = t.getContext();
+        t.setCompoundDrawablesRelative(icon(c, res, sizeDp, t.getCurrentTextColor()), null, null, null);
+        t.setCompoundDrawablePadding(dp(c, 8));
+        return t;
+    }
+
+    /** The same label with an icon, centred (for pill buttons). */
+    public static TextView iconPill(Context c, int res, String label, View.OnClickListener click) {
+        TextView t = pillButton(c, label, click);
+        withIcon(t, res, 16);
+        return t;
+    }
+
+    /** Rounded colored square with a line icon inside. */
+    public static ImageView iconTile(Context c, int res, int tint, int sizeDp) {
+        ImageView t = new ImageView(c);
+        t.setScaleType(ImageView.ScaleType.CENTER);
+        t.setImageDrawable(icon(c, res, Math.round(sizeDp * 0.5f), Color.WHITE));
+        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{(tint & 0x00FFFFFF) | 0xE6000000, (tint & 0x00FFFFFF) | 0x99000000});
+        g.setCornerRadius(dp(c, sizeDp / 3f));
+        g.setStroke(Math.max(1, dp(c, 1)), 0x40FFFFFF);
+        t.setBackground(g);
+        t.setLayoutParams(lp(dp(c, sizeDp), dp(c, sizeDp)));
+        return t;
+    }
+
     /** Rounded square with an emoji/glyph inside. */
     public static TextView iconTile(Context c, String glyph, int tint, int sizeDp) {
         TextView t = new TextView(c);
@@ -205,8 +252,8 @@ public final class UI {
         row.setGravity(Gravity.CENTER_VERTICAL);
 
         LinearLayout back = card(a, 14, 0, null, v -> onBack.run());
-        TextView arrow = tv(a, "\u2039", 26, true, text(a));
-        arrow.setGravity(Gravity.CENTER);
+        ImageView arrow = iconView(a, R.drawable.ic_chevron_left, 24, text(a));
+        arrow.setScaleType(ImageView.ScaleType.CENTER);
         back.addView(arrow, lp(dp(a, 44), dp(a, 44)));
         row.addView(back, lp(dp(a, 44), dp(a, 44)));
 
