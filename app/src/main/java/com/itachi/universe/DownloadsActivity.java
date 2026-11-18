@@ -46,8 +46,13 @@ public class DownloadsActivity extends BaseActivity {
     private void render() {
         list.removeAllViews();
         List<Downloads.Item> items = Downloads.list(this);
-        summary.setText(items.isEmpty() ? "" : items.size() + (items.size() == 1 ? " lecture" : " lectures") + " · " + mb(Downloads.totalBytes(this)) + " on this phone");
-        if (items.isEmpty()) {
+        List<Downloads.Item> pdfs = Downloads.listPdfs(this);
+        long pdfBytes = 0;
+        for (Downloads.Item q : pdfs) pdfBytes += q.size;
+        int total = items.size() + pdfs.size();
+        summary.setText(total == 0 ? "" : items.size() + (items.size() == 1 ? " video" : " videos") + ", " + pdfs.size()
+                + (pdfs.size() == 1 ? " PDF" : " PDFs") + " \u00B7 " + mb(Downloads.totalBytes(this) + pdfBytes) + " on this phone");
+        if (total == 0) {
             TextView t = UI.tv(this, "Nothing downloaded yet.\nOpen a lecture and tap Download to watch it offline.", 14, false, UI.dim(this));
             t.setGravity(Gravity.CENTER);
             t.setPadding(0, UI.dp(this, 48), 0, 0);
