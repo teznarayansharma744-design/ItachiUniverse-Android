@@ -28,7 +28,10 @@ import java.util.function.IntConsumer;
 public class GlassDialog extends Dialog {
     private final Content spec;
     private View card;
+    private View anchor;
     private boolean closing;
+    private final java.util.ArrayList<View> rows = new java.util.ArrayList<>();
+    private android.animation.ValueAnimator veil;
 
     private static final class Content {
         CharSequence title, message;
@@ -39,6 +42,7 @@ public class GlassDialog extends Dialog {
         String[] items;
         IntConsumer onItem;
         int checked = -1;
+        View anchor;
     }
 
     public static class Builder {
@@ -71,6 +75,39 @@ public class GlassDialog extends Dialog {
         new GlassDialog(ctx, c).show();
     }
 
+    /** Pop-up menu that grows out of the tapped button (like the three-dot menus in HyperOS / Telegram). */
+    public static void menu(Context ctx, View anchor, String title, String[] items, IntConsumer onPick) {
+        Content c = new Content();
+        c.title = title; c.items = items; c.onItem = onPick; c.anchor = anchor;
+        new GlassDialog(ctx, c).show();
+    }
+
+    /** Dim + blur behind the pop-up fade in and out with the card instead of jumping. */
+    private void veil(boolean in, Runnable end) {
+        Window w = getWindow();
+        if (w == null) return;
+        final float dimMax = UI.dark(getContext()) ? 0.42f : 0.28f;
+        final int blurMax = UI.dp(getContext(), 22);
+        if (veil != null) veil.cancel();
+        veil = android.animation.ValueAnimator.ofFloat(in ? 0f : 1f, in ? 1f : 0f);
+        veil.setDuration(in ? 420 : 220);
+        veil.addUpdateListener(a -> {
+            float f = (float) a.getAnimatedValue();
+            try {
+                w.setDimAmount(dimMax * f);
+                if (Build.VERSION.SDK_INT >= 31) {
+                    WindowManager.LayoutParams lp = w.getAttributes();
+                    lp.setBlurBehindRadius(Math.max(1, Math.round(blurMax * f)));
+                    w.setAttributes(lp);
+                }
+            } catch (Exception ignored) {}
+        });
+        if (end != null) veil.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(android.animation.Animator a) { end.run(); }
+        });
+        veil.start();
+    }
+
     private GlassDialog(Context ctx, Content spec) {
         super(ctx, R.style.GlassDialogTheme);
         this.spec = spec;
@@ -86,12 +123,12 @@ public class GlassDialog extends Dialog {
         if (w != null) {
             w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
             w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-            w.setDimAmount(UI.dark(c) ? 0.42f : 0.28f);
+            w.setDimAmount(0f);
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
             if (Build.VERSION.SDK_INT >= 31) {  // the real frosted glass: blur everything behind the pop-up
                 w.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
                 WindowManager.LayoutParams lp = w.getAttributes();
-                lp.setBlurBehindRadius(UI.dp(c, 22));
+                lp.setBlurBehindRadius(1);
                 w.setAttributes(lp);
             }
         }
@@ -106,15 +143,61 @@ public class GlassDialog extends Dialog {
                 Math.min(UI.dp(c, 360), c.getResources().getDisplayMetrics().widthPixels - 2 * margin),
                 ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
         card.setClickable(true);  // taps on the card must not close the dialog
+        anchor = spec.anchor;
+        if (anchor != null) {   // sit next to the button, on the side with more room
+            int[] loc = new int[2];
+            anchor.getLocationOnScreen(loc);
+            int sw = c.getResources().getDisplayMetrics().widthPixels;
+            int sh = c.getResources().getDisplayMetrics().heightPixels;
+            root.setPadding(0, 0, 0, 0);
+            cp.width = Math.min(UI.dp(c, 260), sw - UI.dp(c, 24));
+            boolean right = loc[0] + anchor.getWidth() / 2 > sw / 2;
+            cp.gravity = Gravity.TOP | (right ? Gravity.END : Gravity.START);
+            int side = UI.dp(c, 12);
+            if (right) cp.rightMargin = Math.max(side, sw - (loc[0] + anchor.getWidth()) );
+            else cp.leftMargin = Math.max(side, loc[0]);
+            cp.topMargin = Math.min(Math.max(UI.dp(c, 8), loc[1] + anchor.getHeight() - UI.dp(c, 6)), sh - UI.dp(c, 220));
+        }
         root.addView(card, cp);
         setContentView(root);
 
         card.setAlpha(0f);
-        card.setScaleX(0.86f);
-        card.setScaleY(0.86f);
-        card.setTranslationY(UI.dp(c, 26));
-        card.post(() -> card.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
-                .setDuration(460).setInterpolator(Motion.SPRING).start());
+        veil(true, null);
+        if (anchor != null) {
+            card.setScaleX(0.25f);
+            card.setScaleY(0.25f);
+            card.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+                @Override public void onLayoutChange(View v, int l, int t, int r, int bt, int ol, int ot, int or, int ob) {
+                    v.removeOnLayoutChangeListener(this);
+                    int[] loc = new int[2];
+                    anchor.getLocationOnScreen(loc);
+                    int[] rl = new int[2];
+                    ((View) v.getParent()).getLocationOnScreen(rl);
+                    v.setPivotX(Math.max(0, Math.min(v.getWidth(), loc[0] + anchor.getWidth() / 2f - rl[0] - v.getLeft())));
+                    v.setPivotY(Math.max(0, Math.min(v.getHeight(), loc[1] + anchor.getHeight() / 2f - rl[1] - v.getTop())));
+                    v.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(420).setInterpolator(Motion.SPRING).start();
+                    stagger(180);
+                }
+            });
+        } else {
+            card.setScaleX(0.86f);
+            card.setScaleY(0.86f);
+            card.setTranslationY(UI.dp(c, 26));
+            card.post(() -> { card.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
+                    .setDuration(460).setInterpolator(Motion.SPRING).start(); stagger(120); });
+        }
+    }
+
+    /** Menu rows slide in one after another. */
+    private void stagger(int startDelay) {
+        float lift = UI.dp(getContext(), 10);
+        for (int i = 0; i < rows.size() && i < 10; i++) {
+            View r = rows.get(i);
+            r.setAlpha(0f);
+            r.setTranslationY(lift);
+            r.animate().alpha(1f).translationY(0f).setStartDelay(startDelay + i * 38L).setDuration(380)
+                    .setInterpolator(Motion.SMOOTH).start();
+        }
     }
 
     private View buildCard(Context c) {
@@ -184,6 +267,7 @@ public class GlassDialog extends Dialog {
                 LinearLayout.LayoutParams lp = UI.matchWrap();
                 lp.topMargin = UI.dp(c, i == 0 ? 4 : 8);
                 itemsCol.addView(row, lp);
+                rows.add(row);
             }
             ScrollView isv = new ScrollView(c);
             isv.setVerticalScrollBarEnabled(false);
@@ -262,7 +346,9 @@ public class GlassDialog extends Dialog {
             return;
         }
         closing = true;
-        card.animate().alpha(0f).scaleX(0.92f).scaleY(0.92f).setDuration(190)
+        veil(false, null);
+        float to = anchor != null ? 0.3f : 0.92f;
+        card.animate().alpha(0f).scaleX(to).scaleY(to).setDuration(anchor != null ? 220 : 190)
                 .setInterpolator(new android.view.animation.AccelerateInterpolator(1.2f))
                 .withEndAction(() -> { try { super.dismiss(); } catch (Exception ignored) {} }).start();
     }

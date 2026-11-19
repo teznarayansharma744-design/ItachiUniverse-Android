@@ -186,7 +186,7 @@ public class AdminContentActivity extends BaseActivity {
         more.setLayoutParams(UI.lp(UI.dp(this, 44), UI.dp(this, 40)));
         more.setOnClickListener(v -> {
             final boolean sub = level() < 3;
-            GlassDialog.menu(this, null, new String[]{sub ? "Rename" : "Edit", "Delete"}, i -> {
+            GlassDialog.menu(this, more, null, new String[]{sub ? "Rename" : "Edit", "Delete"}, i -> {
                 if (i == 1) onDelete(m);
                 else if (sub) onRename(m);
                 else showLectureDialog(m);

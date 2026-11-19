@@ -234,7 +234,7 @@ public class AdminPanelActivity extends BaseActivity {
     private void showMenu(View anchor, Models.AdminKey k) {
         final boolean revoked = "revoked".equals(k.status);
         String[] items = {"Copy key", "Extend 30 days", "Change device / log out phone", revoked ? "Restore" : "Revoke", "Delete"};
-        GlassDialog.menu(this, "Key options", items, pick -> {
+        GlassDialog.menu(this, anchor, "Key options", items, pick -> {
             switch (pick) {
                 case 0: copyToClipboard(k.key, "Key copied."); break;
                 case 1: change(() -> { Api.extendKey(k.key, 30); return null; }, "Extended by 30 days."); break;
