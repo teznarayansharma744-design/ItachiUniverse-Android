@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -169,9 +170,33 @@ public class PlayerActivity extends BaseActivity {
         info.addView(titleView);
         rootCol.addView(info, UI.matchWrap());
 
+        // Under the video nothing is shown until the student opens this handle, so the lecture
+        // list does not pull attention away from the video.
+        drawerHandle = new LinearLayout(this);
+        drawerHandle.setOrientation(LinearLayout.HORIZONTAL);
+        drawerHandle.setGravity(Gravity.CENTER_VERTICAL);
+        drawerHandle.setPadding(UI.dp(this, 16), UI.dp(this, 12), UI.dp(this, 14), UI.dp(this, 12));
+        drawerHandle.setBackground(new GlassDrawable(this, UI.dp(this, 18), 0, 1f));
+        drawerHandle.addView(UI.iconView(this, R.drawable.ic_playlist, 20, UI.TEAL), UI.lp(UI.dp(this, 20), UI.dp(this, 20)));
+        drawerLabel = UI.tv(this, "", 14, true, UI.text(this));
+        drawerLabel.setPadding(UI.dp(this, 10), 0, 0, 0);
+        drawerHandle.addView(drawerLabel, new LinearLayout.LayoutParams(0, -2, 1f));
+        drawerChevron = UI.iconView(this, R.drawable.ic_down, 20, UI.dim(this));
+        drawerHandle.addView(drawerChevron, UI.lp(UI.dp(this, 20), UI.dp(this, 20)));
+        drawerHandle.setOnClickListener(v -> setDrawer(!drawerOpen));
+        Motion.press(drawerHandle);
+        LinearLayout.LayoutParams hp = UI.matchWrap();
+        hp.setMargins(UI.dp(this, 16), UI.dp(this, 14), UI.dp(this, 16), 0);
+        rootCol.addView(drawerHandle, hp);
+
+        drawerBody = new LinearLayout(this);
+        drawerBody.setOrientation(LinearLayout.VERTICAL);
+        drawerBody.setVisibility(View.GONE);
+        rootCol.addView(drawerBody, new LinearLayout.LayoutParams(-1, 0, 1f));
+
         tabBar = new LinearLayout(this);
         tabBar.setPadding(UI.dp(this, 16), UI.dp(this, 12), UI.dp(this, 16), UI.dp(this, 8));
-        rootCol.addView(tabBar, UI.matchWrap());
+        drawerBody.addView(tabBar, UI.matchWrap());
 
         content = new FrameLayout(this);
         listScroll = new ScrollView(this);
@@ -188,7 +213,7 @@ public class PlayerActivity extends BaseActivity {
         markScroll.addView(markCol);
         content.addView(listScroll, new FrameLayout.LayoutParams(-1, -1));
         content.addView(markScroll, new FrameLayout.LayoutParams(-1, -1));
-        rootCol.addView(content, new LinearLayout.LayoutParams(-1, 0, 1f));
+        drawerBody.addView(content, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         renderPlaylist();
         renderBookmarks();
@@ -238,7 +263,7 @@ public class PlayerActivity extends BaseActivity {
         View shown = tab == T_LECT ? listScroll : tab == T_MARK ? markScroll : pdfPanel;
         listScroll.setVisibility(tab == T_LECT ? View.VISIBLE : View.GONE);
         markScroll.setVisibility(tab == T_MARK ? View.VISIBLE : View.GONE);
-        if (tab == T_PDF && hasPdf && pdfPanel == null) {
+        if (tab == T_PDF && hasPdf && pdfPanel == null && drawerOpen) {
             pdfPanel = new PdfPanel(this, lectureId, title, true);
             pdfPanel.setSubtitle(subtitle);
             pdfPanel.setOnDownload(() -> pdfSaver.launch(pdfPanel.fileName()));
@@ -258,6 +283,36 @@ public class PlayerActivity extends BaseActivity {
         pdfPanel.release();
         content.removeView(pdfPanel);
         pdfPanel = null;
+    }
+
+    // ---------- the lectures drawer under the video ----------
+    private LinearLayout drawerHandle, drawerBody;
+    private TextView drawerLabel;
+    private ImageView drawerChevron;
+    private boolean drawerOpen = false;
+
+    private void updateDrawerLabel() {
+        if (drawerLabel == null) return;
+        StringBuilder sb = new StringBuilder();
+        if (ids.length > 1) sb.append("Lectures ").append(ids.length).append("  \u00B7  ");
+        sb.append("Bookmarks");
+        if (hasPdf) sb.append("  \u00B7  PDF");
+        drawerLabel.setText(sb.toString());
+    }
+
+    private void setDrawer(boolean open) {
+        drawerOpen = open;
+        drawerChevron.animate().rotation(open ? 180f : 0f).setDuration(320).setInterpolator(Motion.SPRING).start();
+        if (open) {
+            drawerBody.setVisibility(View.VISIBLE);
+            drawerBody.setAlpha(0f);
+            drawerBody.setTranslationY(UI.dp(this, 28));
+            drawerBody.animate().alpha(1f).translationY(0f).setDuration(420).setInterpolator(Motion.SMOOTH).start();
+            if (tab == T_PDF) showTab();   // the PDF page loads only once it is actually opened
+        } else {
+            drawerBody.animate().alpha(0f).translationY(UI.dp(this, 20)).setDuration(220)
+                    .withEndAction(() -> { if (!drawerOpen) drawerBody.setVisibility(View.GONE); }).start();
+        }
     }
 
     // ---------- landscape playlist panel ----------
@@ -471,6 +526,7 @@ public class PlayerActivity extends BaseActivity {
         renderPlaylist();
         renderBookmarks();
         buildTabs();
+        updateDrawerLabel();
         load();
     }
 
@@ -692,8 +748,9 @@ public class PlayerActivity extends BaseActivity {
     private void applyLayout() {
         boolean full = fullscreen || landscape();
         info.setVisibility(full ? View.GONE : View.VISIBLE);
-        tabBar.setVisibility(full ? View.GONE : View.VISIBLE);
-        content.setVisibility(full ? View.GONE : View.VISIBLE);
+        drawerHandle.setVisibility(full ? View.GONE : View.VISIBLE);
+        drawerBody.setVisibility(!full && drawerOpen ? View.VISIBLE : View.GONE);
+        updateDrawerLabel();
         int w = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
         int h = full ? ViewGroup.LayoutParams.MATCH_PARENT : Math.min(w * 9 / 16, (int) (sh * 0.45f));
         rootCol.removeView(videoHolder);
