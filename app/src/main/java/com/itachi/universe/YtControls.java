@@ -166,6 +166,17 @@ public class YtControls extends FrameLayout {
     private Runnable onEnded;
     /** Called once when the video reaches its end (used for auto-play of the next lecture). */
     public void setOnEnded(Runnable r) { onEnded = r; }
+
+    private ImageView prevBtn, nextBtn;
+    private Runnable onPrev, onNext;
+
+    /** Shows the previous / next lecture buttons next to play (like PLAYit). */
+    public void setNeighbours(boolean hasPrev, boolean hasNext, Runnable prev, Runnable next) {
+        onPrev = prev;
+        onNext = next;
+        if (prevBtn != null) prevBtn.setVisibility(hasPrev ? View.VISIBLE : View.GONE);
+        if (nextBtn != null) nextBtn.setVisibility(hasNext ? View.VISIBLE : View.GONE);
+    }
     public float currentSeconds() { return pos; }
     public float durationSeconds() { return dur; }
     public void seekToSeconds(float t) {
@@ -294,6 +305,15 @@ public class YtControls extends FrameLayout {
         LinearLayout.LayoutParams m2 = new LinearLayout.LayoutParams(dp(44), dp(44));
         m2.setMargins(dp(18), 0, dp(18), 0);
         center.addView(f10, m2);
+        // previous / next lecture, shown only when there is one to go to
+        prevBtn = iconRound(R.drawable.ic_skip_prev, 22, 40);
+        prevBtn.setOnClickListener(v -> { if (onPrev != null) onPrev.run(); });
+        nextBtn = iconRound(R.drawable.ic_skip_next, 22, 40);
+        nextBtn.setOnClickListener(v -> { if (onNext != null) onNext.run(); });
+        center.addView(prevBtn, 0, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        center.addView(nextBtn, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        prevBtn.setVisibility(View.GONE);
+        nextBtn.setVisibility(View.GONE);
         controls.addView(center, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
 
         // lock button (left, middle)

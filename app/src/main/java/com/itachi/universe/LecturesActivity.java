@@ -52,15 +52,24 @@ public class LecturesActivity extends BaseActivity {
         super.onCreate(b);
         int bi = getIntent().getIntExtra("b", 0), si = getIntent().getIntExtra("s", 0), ui = getIntent().getIntExtra("u", 0);
         try {
-            subject = Catalog.batches.get(bi).subjects.get(si);
-            unit = subject.units.get(ui);
+            Models.Batch batch = Catalog.batches.get(bi);
+            if (si < 0) {            // lectures that sit straight inside the batch
+                subject = new Models.Subject();
+                subject.name = batch.name;
+                unit = batch.direct;
+            } else {
+                subject = batch.subjects.get(si);
+                unit = ui < 0 ? subject.direct : subject.units.get(ui);
+            }
         } catch (Exception e) {
             finish();
             return;
         }
 
         LinearLayout col = column();
-        col.addView(UI.backHeader(this, subject.name + " / Unit " + (ui + 1), unit.name));
+        col.addView(si < 0 ? UI.backHeader(this, "Batch", subject.name)
+                : ui < 0 ? UI.backHeader(this, subject.name, "Lectures")
+                : UI.backHeader(this, subject.name + " / Unit " + (ui + 1), unit.name));
         col.addView(UI.space(this, 20));
 
         tabsRow = UI.card(this, 16, 5, null, null);

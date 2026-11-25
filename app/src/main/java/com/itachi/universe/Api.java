@@ -255,14 +255,15 @@ public final class Api {
         call("DELETE", "/admin/" + kind + "/" + id, null);
     }
 
-    public static void saveLecture(Integer id, Integer unitId, String title, String video, String pdf, boolean free)
+    /** folderKind is "unit", "subject" or "batch": where a NEW lecture goes (ignored when editing). */
+    public static void saveLecture(Integer id, String folderKind, Integer folderId, String title, String video, String pdf, boolean free)
             throws ApiException {
         JsonObject body = new JsonObject();
         body.addProperty("title", title);
         body.addProperty("video_url", video);
         body.addProperty("pdf_url", pdf);
         body.addProperty("free", free);
-        body.addProperty("unit_id", unitId);
+        if (id == null && folderKind != null) body.addProperty(folderKind + "_id", folderId);
         if (id == null) call("POST", "/admin/lectures", body);
         else call("PUT", "/admin/lectures/" + id, body);
     }

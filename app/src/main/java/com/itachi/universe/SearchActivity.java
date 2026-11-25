@@ -50,8 +50,40 @@ public class SearchActivity extends BaseActivity {
         int shown = 0;
         for (int bi = 0; bi < Catalog.batches.size() && shown < 50; bi++) {
             Models.Batch batch = Catalog.batches.get(bi);
+            for (Models.Lecture l : batch.direct.lectures) {
+                if (shown >= 50) break;
+                if (!l.title.toLowerCase().contains(needle)) continue;
+                shown++;
+                final int fb = bi;
+                LinearLayout card = UI.card(this, 20, 14, null, v -> {
+                    Intent i = new Intent(this, LecturesActivity.class);
+                    i.putExtra("b", fb).putExtra("s", -1).putExtra("u", -1);
+                    startActivity(i);
+                });
+                card.addView(UI.tv(this, l.title, 16, true, UI.text(this)));
+                card.addView(UI.tv(this, batch.name, 12, false, UI.dim(this)));
+                LinearLayout.LayoutParams lp = UI.matchWrap();
+                lp.bottomMargin = UI.dp(this, 10);
+                results.addView(card, lp);
+            }
             for (int si = 0; si < batch.subjects.size() && shown < 50; si++) {
                 Models.Subject sub = batch.subjects.get(si);
+                for (Models.Lecture l : sub.direct.lectures) {
+                    if (shown >= 50) break;
+                    if (!l.title.toLowerCase().contains(needle)) continue;
+                    shown++;
+                    final int fb = bi, fs = si;
+                    LinearLayout card = UI.card(this, 20, 14, null, v -> {
+                        Intent i = new Intent(this, LecturesActivity.class);
+                        i.putExtra("b", fb).putExtra("s", fs).putExtra("u", -1);
+                        startActivity(i);
+                    });
+                    card.addView(UI.tv(this, l.title, 16, true, UI.text(this)));
+                    card.addView(UI.tv(this, batch.name + " / " + sub.name, 12, false, UI.dim(this)));
+                    LinearLayout.LayoutParams lp = UI.matchWrap();
+                    lp.bottomMargin = UI.dp(this, 10);
+                    results.addView(card, lp);
+                }
                 for (int ui = 0; ui < sub.units.size() && shown < 50; ui++) {
                     Models.UnitItem unit = sub.units.get(ui);
                     for (Models.Lecture l : unit.lectures) {

@@ -4,6 +4,7 @@ import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.OrientationEventListener;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -194,12 +195,13 @@ public class PlayerActivity extends BaseActivity {
         buildTabs();
 
         setScreen(rootCol);
+        watchRotation();
         applyLayout();
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
                 if (yt != null && yt.isInFullscreen()) yt.exitFullscreen();
-                else if (fullscreen) setFullscreen(false);
+                else if (fullscreen || landscape()) setFullscreen(false);
                 else finish();
             }
         });
@@ -215,25 +217,24 @@ public class PlayerActivity extends BaseActivity {
         if (hasPdf) tabIds.add(T_PDF);
         if (!tabIds.contains(tab)) tab = tabIds.get(0);
         tabBar.removeAllViews();
-        for (int id : tabIds) {
-            String name = id == T_LECT ? "Lectures (" + ids.length + ")"
-                    : id == T_MARK ? "Bookmarks" + (Bookmarks.count(this, lectureId) > 0 ? " (" + Bookmarks.count(this, lectureId) + ")" : "")
-                    : "PDF notes";
-            TextView t = UI.tv(this, name, 13, true, id == tab ? UI.text(this) : UI.dim(this));
-            t.setGravity(Gravity.CENTER);
-            t.setPadding(UI.dp(this, 6), UI.dp(this, 11), UI.dp(this, 6), UI.dp(this, 11));
-            t.setSingleLine(true);
-            if (id == tab) UI.glassBg(t, 14, 2.2f);
-            t.setOnClickListener(v -> { tab = id; buildTabs(); });
-            Motion.press(t);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1f);
-            lp.rightMargin = UI.dp(this, 6);
-            tabBar.addView(t, lp);
+        int n = tabIds.size();
+        int[] ic = new int[n];
+        String[] names = new String[n];
+        for (int k = 0; k < n; k++) {
+            int id = tabIds.get(k);
+            ic[k] = id == T_LECT ? R.drawable.ic_library : id == T_MARK ? R.drawable.ic_bookmark : R.drawable.ic_pdf;
+            names[k] = id == T_LECT ? "Lectures " + ids.length
+                    : id == T_MARK ? "Bookmarks" + (Bookmarks.count(this, lectureId) > 0 ? " " + Bookmarks.count(this, lectureId) : "")
+                    : "PDF";
         }
+        PillTabs pt = new PillTabs(this, ic, names, k -> { tab = tabIds.get(k); showTab(); });
+        pt.select(tabIds.indexOf(tab), false);
+        tabBar.addView(pt, new LinearLayout.LayoutParams(-1, -2));
         showTab();
     }
 
     private void showTab() {
+        View shown = tab == T_LECT ? listScroll : tab == T_MARK ? markScroll : pdfPanel;
         listScroll.setVisibility(tab == T_LECT ? View.VISIBLE : View.GONE);
         markScroll.setVisibility(tab == T_MARK ? View.VISIBLE : View.GONE);
         if (tab == T_PDF && hasPdf && pdfPanel == null) {
@@ -243,6 +244,12 @@ public class PlayerActivity extends BaseActivity {
             content.addView(pdfPanel, new FrameLayout.LayoutParams(-1, -1));
         }
         if (pdfPanel != null) pdfPanel.setVisibility(tab == T_PDF ? View.VISIBLE : View.GONE);
+        if (tab == T_PDF) shown = pdfPanel;
+        if (shown != null) {
+            shown.setAlpha(0f);
+            shown.setTranslationY(UI.dp(this, 12));
+            shown.animate().alpha(1f).translationY(0f).setDuration(340).setInterpolator(Motion.SMOOTH).start();
+        }
     }
 
     private void disposePdf() {
@@ -485,12 +492,13 @@ public class PlayerActivity extends BaseActivity {
         pv.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING);
         videoHolder.addView(pv, new FrameLayout.LayoutParams(-1, -1));
         ytControls = new YtControls(this, player, pv, title, new YtControls.Host() {
-            @Override public boolean isFullscreen() { return fullscreen; }
-            @Override public void toggleFullscreen() { setFullscreen(!fullscreen); }
+            @Override public boolean isFullscreen() { return fullscreen || landscape(); }
+            @Override public void toggleFullscreen() { setFullscreen(!(fullscreen || landscape())); }
             @Override public void onBack() { getOnBackPressedDispatcher().onBackPressed(); }
         });
         videoHolder.addView(ytControls, new FrameLayout.LayoutParams(-1, -1));
         ytControls.setOnEnded(this::onVideoEnded);
+        ytControls.setNeighbours(index > 0, index < ids.length - 1, () -> switchTo(index - 1), () -> switchTo(index + 1));
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         player.setMediaItem(MediaItem.fromUri(src.url));
         float from = Progress.resume(this, lectureId);
@@ -532,12 +540,13 @@ public class PlayerActivity extends BaseActivity {
 
         // PLAYit-style controls (gestures, lock, speed, fit, fullscreen) on top of the video.
         ytControls = new YtControls(this, yt, title, new YtControls.Host() {
-            @Override public boolean isFullscreen() { return fullscreen; }
-            @Override public void toggleFullscreen() { setFullscreen(!fullscreen); }
+            @Override public boolean isFullscreen() { return fullscreen || landscape(); }
+            @Override public void toggleFullscreen() { setFullscreen(!(fullscreen || landscape())); }
             @Override public void onBack() { getOnBackPressedDispatcher().onBackPressed(); }
         });
         videoHolder.addView(ytControls, new FrameLayout.LayoutParams(-1, -1));
         ytControls.setOnEnded(this::onVideoEnded);
+        ytControls.setNeighbours(index > 0, index < ids.length - 1, () -> switchTo(index - 1), () -> switchTo(index + 1));
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         yt.loadVideo(videoId);
@@ -545,11 +554,34 @@ public class PlayerActivity extends BaseActivity {
     }
 
     // ---------- fullscreen ----------
+    private OrientationEventListener oel;
+    private int forcedLandscape = -1;   // -1 = nothing forced, 1 = forced landscape, 0 = forced portrait
+
+    /** The fullscreen button: turn the screen the way asked, then hand control back to the phone's
+     *  auto-rotate as soon as the phone is actually held that way. */
     private void setFullscreen(boolean full) {
         fullscreen = full;
+        forcedLandscape = full ? 1 : 0;
         setRequestedOrientation(full ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                 : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         applyLayout();
+    }
+
+    private void watchRotation() {
+        // follow the phone's auto-rotate setting: held sideways -> landscape, upright -> portrait
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+        oel = new OrientationEventListener(this) {
+            @Override public void onOrientationChanged(int deg) {
+                if (forcedLandscape < 0 || deg == ORIENTATION_UNKNOWN) return;
+                boolean sideways = (deg > 60 && deg < 120) || (deg > 240 && deg < 300);
+                boolean upright = deg < 30 || deg > 330 || (deg > 150 && deg < 210);
+                if ((forcedLandscape == 1 && sideways) || (forcedLandscape == 0 && upright)) {
+                    forcedLandscape = -1;
+                    setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+                }
+            }
+        };
+        if (oel.canDetectOrientation()) oel.enable();
     }
 
     private boolean landscape() {
@@ -558,6 +590,7 @@ public class PlayerActivity extends BaseActivity {
 
     @Override public void onConfigurationChanged(Configuration c) {
         super.onConfigurationChanged(c);
+        fullscreen = landscape();   // whichever way the phone ended up decides the layout
         applyLayout();  // phone rotated or window resized: refit everything
     }
 
@@ -601,6 +634,7 @@ public class PlayerActivity extends BaseActivity {
     }
 
     @Override protected void onDestroy() {
+        if (oel != null) oel.disable();
         if (pdfPanel != null) pdfPanel.release();
         handler.removeCallbacksAndMessages(null);
         saveExoProgress();

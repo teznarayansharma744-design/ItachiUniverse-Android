@@ -19,7 +19,7 @@ import java.util.List;
 
 public class HomeActivity extends BaseActivity {
     private final View[] tabs = new View[4];
-    private final LinearLayout[] navItems = new LinearLayout[4];
+    private PillTabs nav;
     private static final int[] NAV_ICONS = {R.drawable.ic_home, R.drawable.ic_library, R.drawable.ic_settings, R.drawable.ic_info};
     private final List<LinearLayout> batchLists = new ArrayList<>();
     private final List<SwipeRefreshLayout> refreshers = new ArrayList<>();
@@ -37,32 +37,15 @@ public class HomeActivity extends BaseActivity {
         tabs[3] = aboutTab();
         for (View t : tabs) content.addView(t, new FrameLayout.LayoutParams(-1, -1));
 
-        // bottom navigation
-        LinearLayout nav = UI.card(this, 24, 8, null, null);
-        nav.setOrientation(LinearLayout.HORIZONTAL);
-        nav.setGravity(Gravity.CENTER);
+        // bottom navigation: the chosen tab grows into a pill
         String[] labels = {"Home", "Library", "Settings", "About"};
-        for (int i = 0; i < tabs.length; i++) {
-            final int idx = i;
-            LinearLayout t = new LinearLayout(this);
-            t.setOrientation(LinearLayout.VERTICAL);
-            t.setGravity(Gravity.CENTER);
-            t.setPadding(UI.dp(this, 6), UI.dp(this, 9), UI.dp(this, 6), UI.dp(this, 8));
-            ImageView ic = UI.iconView(this, NAV_ICONS[i], 22, UI.dim(this));
-            t.addView(ic, UI.lp(UI.dp(this, 22), UI.dp(this, 22)));
-            TextView lb = UI.tv(this, labels[i], 11, true, UI.dim(this));
-            lb.setGravity(Gravity.CENTER);
-            t.addView(lb);
-            t.setOnClickListener(v -> select(idx));
-            Motion.press(t);
-            navItems[i] = t;
-            nav.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
-        }
+        nav = new PillTabs(this, NAV_ICONS, labels, this::select);
         FrameLayout.LayoutParams np = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
-        np.setMargins(UI.dp(this, 24), 0, UI.dp(this, 24), UI.dp(this, 16));
+        np.setMargins(UI.dp(this, 20), 0, UI.dp(this, 20), UI.dp(this, 16));
         root.addView(nav, np);
 
         setScreen(root);
+        nav.select(0, false);
         select(0);
         Catalog.load(this::refresh);
         Updater.check(this, false);
@@ -70,13 +53,16 @@ public class HomeActivity extends BaseActivity {
 
     private void select(int idx) {
         for (int i = 0; i < tabs.length; i++) {
-            tabs[i].setVisibility(i == idx ? View.VISIBLE : View.GONE);
             boolean sel = i == idx;
-            int col = sel ? UI.text(this) : UI.dim(this);
-            ((TextView) navItems[i].getChildAt(1)).setTextColor(col);
-            ((ImageView) navItems[i].getChildAt(0)).setImageDrawable(UI.icon(this, NAV_ICONS[i], 22, col));
-            if (sel) UI.glassBg(navItems[i], 18, 2.2f); else navItems[i].setBackground(null);
+            boolean was = tabs[i].getVisibility() == View.VISIBLE;
+            tabs[i].setVisibility(sel ? View.VISIBLE : View.GONE);
+            if (sel && !was) {   // the new page fades and rises in
+                tabs[i].setAlpha(0f);
+                tabs[i].setTranslationY(UI.dp(this, 14));
+                tabs[i].animate().alpha(1f).translationY(0f).setDuration(380).setInterpolator(Motion.SMOOTH).start();
+            }
         }
+        if (nav != null) nav.select(idx, true);
     }
 
     private SwipeRefreshLayout refreshable(View child) {

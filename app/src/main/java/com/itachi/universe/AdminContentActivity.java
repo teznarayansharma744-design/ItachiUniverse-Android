@@ -116,37 +116,47 @@ public class AdminContentActivity extends BaseActivity {
         return m;
     }
 
-    private JsonArray items() {
+    /** Folders inside the current one (batches at the top, then subjects, then units). */
+    private JsonArray folders() {
         switch (level()) {
             case 0: return data;
             case 1: return current(1).getAsJsonArray("subjects");
             case 2: return current(2).getAsJsonArray("units");
-            default: return current(3).getAsJsonArray("lectures");
+            default: return new JsonArray();
         }
+    }
+
+    /** Lectures that sit directly in the current folder (any folder can hold them). */
+    private JsonArray lecturesHere() {
+        if (level() == 0) return new JsonArray();
+        JsonObject cur = current(level());
+        return cur.has("lectures") && cur.get("lectures").isJsonArray() ? cur.getAsJsonArray("lectures") : new JsonArray();
     }
 
     private String titleOf(JsonObject m) {
         return m.has("name") ? Models.str(m, "name") : Models.str(m, "title");
     }
 
-    private int lecturesIn(JsonObject m, int lvl) {
-        if (lvl == 2) return m.getAsJsonArray("lectures").size();
-        JsonArray children = m.getAsJsonArray(lvl == 0 ? "subjects" : "units");
-        int n = 0;
-        for (JsonElement c : children) n += lecturesIn(c.getAsJsonObject(), lvl + 1);
+    private int lecturesIn(JsonObject m) {
+        int n = m.has("lectures") ? m.getAsJsonArray("lectures").size() : 0;
+        for (String key : new String[]{"subjects", "units"}) {
+            if (!m.has(key)) continue;
+            for (JsonElement c : m.getAsJsonArray(key)) n += lecturesIn(c.getAsJsonObject());
+        }
         return n;
     }
 
-    private String subtitle(JsonObject m) {
+    private String subtitle(JsonObject m, boolean lecture) {
+        if (lecture) {
+            String s = Models.bool(m, "free") ? "FREE  " : "";
+            if (!Models.str(m, "video_url").isEmpty()) s += "video ";
+            if (!Models.str(m, "pdf_url").isEmpty()) s += "pdf";
+            return s.trim();
+        }
         switch (level()) {
-            case 0: return m.getAsJsonArray("subjects").size() + " subjects, " + lecturesIn(m, 0) + " lectures";
-            case 1: return m.getAsJsonArray("units").size() + " units, " + lecturesIn(m, 1) + " lectures";
-            case 2: return lecturesIn(m, 2) + " lectures";
-            default:
-                String s = Models.bool(m, "free") ? "FREE  " : "";
-                if (!Models.str(m, "video_url").isEmpty()) s += "video ";
-                if (!Models.str(m, "pdf_url").isEmpty()) s += "pdf";
-                return s.trim();
+            case 0: return m.getAsJsonArray("subjects").size() + " subjects, " + lecturesIn(m) + " lectures";
+            case 1: return m.getAsJsonArray("units").size() + " units, " + lecturesIn(m) + " lectures";
+            default: return lecturesIn(m) + " lectures";
         }
     }
 
@@ -157,20 +167,21 @@ public class AdminContentActivity extends BaseActivity {
         headerBox.addView(UI.backHeader(this, caption, title, this::goUp));
 
         list.removeAllViews();
-        JsonArray items = items();
-        if (items.size() == 0) {
-            TextView t = UI.tv(this, "No " + WORDS[level()] + "s yet. Tap Add.", 14, false, UI.dim(this));
+        JsonArray folders = folders(), lecs = lecturesHere();
+        if (folders.size() == 0 && lecs.size() == 0) {
+            TextView t = UI.tv(this, level() == 3 ? "No lectures yet. Tap Add." : "Nothing here yet. Tap Add.", 14, false, UI.dim(this));
             t.setGravity(Gravity.CENTER);
             t.setPadding(0, UI.dp(this, 30), 0, 0);
             list.addView(t, UI.matchWrap());
             return;
         }
-        for (JsonElement e : items) list.addView(itemCard(e.getAsJsonObject()));
+        for (JsonElement e : folders) list.addView(itemCard(e.getAsJsonObject(), false));
+        for (JsonElement e : lecs) list.addView(itemCard(e.getAsJsonObject(), true));
     }
 
-    private View itemCard(JsonObject m) {
+    private View itemCard(JsonObject m, boolean lecture) {
         LinearLayout card = UI.card(this, 20, 16, null, v -> {
-            if (level() < 3) { path.add(Models.num(m, "id")); render(); }
+            if (!lecture) { path.add(Models.num(m, "id")); render(); }
             else showLectureDialog(m);
         });
         card.setOrientation(LinearLayout.HORIZONTAL);
@@ -178,16 +189,16 @@ public class AdminContentActivity extends BaseActivity {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.addView(UI.tv(this, titleOf(m), 16, true, UI.text(this)));
-        col.addView(UI.tv(this, subtitle(m), 12, false, UI.dim(this)));
+        col.addView(UI.tv(this, subtitle(m, lecture), 12, false, UI.dim(this)));
         card.addView(col, new LinearLayout.LayoutParams(0, -2, 1f));
 
         android.widget.ImageView more = UI.iconView(this, R.drawable.ic_more, 22, UI.text(this));
         more.setScaleType(android.widget.ImageView.ScaleType.CENTER);
         more.setLayoutParams(UI.lp(UI.dp(this, 44), UI.dp(this, 40)));
         more.setOnClickListener(v -> {
-            final boolean sub = level() < 3;
+            final boolean sub = !lecture;
             GlassDialog.menu(this, more, null, new String[]{sub ? "Rename" : "Edit", "Delete"}, i -> {
-                if (i == 1) onDelete(m);
+                if (i == 1) onDelete(m, lecture);
                 else if (sub) onRename(m);
                 else showLectureDialog(m);
             });
@@ -227,6 +238,16 @@ public class AdminContentActivity extends BaseActivity {
     private void onAdd() {
         if (level() == 3) { showLectureDialog(null); return; }
         int lvl = level();
+        if (lvl > 0) {   // a folder can hold sub-folders and lectures at the same time
+            GlassDialog.menu(this, "Add to this " + WORDS[lvl - 1], new String[]{"New " + WORDS[lvl], "New lecture here"}, i -> {
+                if (i == 1) showLectureDialog(null); else addFolder(lvl);
+            });
+            return;
+        }
+        addFolder(lvl);
+    }
+
+    private void addFolder(int lvl) {
         askName("New " + WORDS[lvl], "", name ->
                 change(() -> { Api.addItem(KINDS[lvl], name, lvl == 0 ? null : path.get(lvl - 1)); return null; }, "Added."));
     }
@@ -237,10 +258,10 @@ public class AdminContentActivity extends BaseActivity {
                 change(() -> { Api.renameItem(KINDS[lvl], Models.num(m, "id"), name); return null; }, "Renamed."));
     }
 
-    private void onDelete(JsonObject m) {
-        int lvl = level();
+    private void onDelete(JsonObject m, boolean lecture) {
+        final int lvl = lecture ? 3 : level();
         new GlassDialog.Builder(this).setTitle("Delete " + WORDS[lvl] + "?")
-                .setMessage("Everything inside it is deleted too.")
+                .setMessage(lecture ? "This lecture is deleted." : "Everything inside it is deleted too.")
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Delete", (d, w) ->
                         change(() -> { Api.deleteItem(KINDS[lvl], Models.num(m, "id")); return null; }, "Deleted."))
@@ -275,14 +296,15 @@ public class AdminContentActivity extends BaseActivity {
         box.addView(free, UI.matchWrap());
 
         final Integer id = lectureId;
-        final Integer unitId = level() == 3 ? path.get(2) : null;
+        final String folderKind = level() == 3 ? "unit" : level() == 2 ? "subject" : "batch";
+        final Integer folderId = level() == 0 ? null : path.get(level() - 1);
         new GlassDialog.Builder(this).setTitle(lecture == null ? "New lecture" : "Edit lecture").setView(box)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save", (d, w) -> {
                     String t = title.getText().toString().trim();
                     if (t.isEmpty()) { toast("Enter a title."); return; }
                     change(() -> {
-                        Api.saveLecture(id, unitId, t, video.getText().toString().trim(),
+                        Api.saveLecture(id, folderKind, folderId, t, video.getText().toString().trim(),
                                 pdf.getText().toString().trim(), free.isChecked());
                         return null;
                     }, "Saved.");

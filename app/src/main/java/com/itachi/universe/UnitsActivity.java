@@ -18,6 +18,13 @@ public class UnitsActivity extends BaseActivity {
         LinearLayout col = column();
         col.addView(UI.backHeader(this, batch.name, subject.name));
         col.addView(UI.space(this, 20));
+        if (!subject.direct.lectures.isEmpty()) {
+            col.addView(SubjectsActivity.directCard(this, subject.direct, v -> {
+                Intent i = new Intent(this, LecturesActivity.class);
+                i.putExtra("b", bi).putExtra("s", si).putExtra("u", -1);
+                startActivity(i);
+            }));
+        }
         for (int i = 0; i < subject.units.size(); i++) {
             col.addView(unitCard(bi, si, i, subject.units.get(i)));
         }

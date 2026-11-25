@@ -32,16 +32,20 @@ public final class Models {
         public String name;
         public int tint;
         public List<UnitItem> units = new ArrayList<>();
+        /** Lectures added straight into the subject, outside any unit. */
+        public UnitItem direct = new UnitItem();
 
-        public int lectures() { int n = 0; for (UnitItem u : units) n += u.videos(); return n; }
+        public int lectures() { int n = direct.videos(); for (UnitItem u : units) n += u.videos(); return n; }
     }
 
     public static class Batch {
         public String name;
         public int tint;
         public List<Subject> subjects = new ArrayList<>();
+        /** Lectures added straight into the batch, outside any subject. */
+        public UnitItem direct = new UnitItem();
 
-        public int lectures() { int n = 0; for (Subject s : subjects) n += s.lectures(); return n; }
+        public int lectures() { int n = direct.videos(); for (Subject s : subjects) n += s.lectures(); return n; }
     }
 
     /** Where to get a video or PDF: a URL plus any headers the request needs. */
@@ -113,6 +117,20 @@ public final class Models {
     }
 
     /** Turns the server's /catalog "batches" array into model objects. Colors are picked by position. */
+    private static void readLectures(JsonObject parent, UnitItem into) {
+        if (!parent.has("lectures") || !parent.get("lectures").isJsonArray()) return;
+        for (JsonElement le : parent.getAsJsonArray("lectures")) {
+            JsonObject l = le.getAsJsonObject();
+            Lecture lec = new Lecture();
+            lec.id = num(l, "id");
+            lec.title = str(l, "title");
+            lec.hasVideo = bool(l, "has_video");
+            lec.hasPdf = bool(l, "has_pdf");
+            lec.free = bool(l, "free");
+            into.lectures.add(lec);
+        }
+    }
+
     public static List<Batch> parseCatalog(JsonArray json) {
         List<Batch> out = new ArrayList<>();
         for (int bi = 0; bi < json.size(); bi++) {
@@ -120,26 +138,21 @@ public final class Models {
             Batch batch = new Batch();
             batch.name = str(b, "name");
             batch.tint = TINTS[bi % 4];
+            batch.direct.name = "Lectures";
+            readLectures(b, batch.direct);
             JsonArray subjects = b.getAsJsonArray("subjects");
             for (int si = 0; si < subjects.size(); si++) {
                 JsonObject s = subjects.get(si).getAsJsonObject();
                 Subject subject = new Subject();
                 subject.name = str(s, "name");
                 subject.tint = TINTS[si % 4];
+                subject.direct.name = "Lectures";
+                readLectures(s, subject.direct);
                 for (JsonElement ue : s.getAsJsonArray("units")) {
                     JsonObject u = ue.getAsJsonObject();
                     UnitItem unit = new UnitItem();
                     unit.name = str(u, "name");
-                    for (JsonElement le : u.getAsJsonArray("lectures")) {
-                        JsonObject l = le.getAsJsonObject();
-                        Lecture lec = new Lecture();
-                        lec.id = num(l, "id");
-                        lec.title = str(l, "title");
-                        lec.hasVideo = bool(l, "has_video");
-                        lec.hasPdf = bool(l, "has_pdf");
-                        lec.free = bool(l, "free");
-                        unit.lectures.add(lec);
-                    }
+                    readLectures(u, unit);
                     subject.units.add(unit);
                 }
                 batch.subjects.add(subject);
