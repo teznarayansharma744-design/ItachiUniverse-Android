@@ -200,7 +200,8 @@ public class PlayerActivity extends BaseActivity {
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
-                if (yt != null && yt.isInFullscreen()) yt.exitFullscreen();
+                if (panel != null) closePlaylistPanel();
+                else if (yt != null && yt.isInFullscreen()) yt.exitFullscreen();
                 else if (fullscreen || landscape()) setFullscreen(false);
                 else finish();
             }
@@ -259,6 +260,94 @@ public class PlayerActivity extends BaseActivity {
         pdfPanel = null;
     }
 
+    // ---------- landscape playlist panel ----------
+    private FrameLayout panel;
+
+    /** Slides a list of every lecture in this folder in from the right, over the video. */
+    private void showPlaylistPanel() {
+        if (panel != null) return;
+        final FrameLayout overlay = new FrameLayout(this);
+        panel = overlay;
+        View scrim = new View(this);
+        scrim.setBackgroundColor(0x66000000);
+        scrim.setOnClickListener(v -> closePlaylistPanel());
+        overlay.addView(scrim, new FrameLayout.LayoutParams(-1, -1));
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(new GlassDrawable(this, UI.dp(this, 22), 0, 1.4f));
+        card.setPadding(UI.dp(this, 14), UI.dp(this, 14), UI.dp(this, 14), UI.dp(this, 10));
+        card.setClickable(true);
+        TextView head = UI.tv(this, "Playlist", 16, true, UI.text(this));
+        card.addView(head);
+        if (!subtitle.isEmpty()) card.addView(UI.tv(this, subtitle, 11, true, UI.TEAL));
+        card.addView(UI.space(this, 8));
+
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        View current = null;
+        for (int k = 0; k < ids.length; k++) {
+            final int at = k;
+            boolean now = k == index;
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(UI.dp(this, 10), UI.dp(this, 9), UI.dp(this, 10), UI.dp(this, 9));
+            row.setBackground(UI.box(now ? 0x3319C3B1 : (UI.dark(this) ? 0x14FFFFFF : 0x12000000), UI.dp(this, 14), 0, 0));
+            if (now) row.addView(UI.iconView(this, R.drawable.ic_play, 16, UI.TEAL), UI.lp(UI.dp(this, 26), UI.dp(this, 16)));
+            else {
+                TextView num = UI.tv(this, String.valueOf(k + 1), 13, true, UI.dim(this));
+                num.setGravity(Gravity.CENTER);
+                row.addView(num, UI.lp(UI.dp(this, 26), -2));
+            }
+            LinearLayout col = new LinearLayout(this);
+            col.setOrientation(LinearLayout.VERTICAL);
+            TextView t = UI.tv(this, titles[k], 14, true, UI.text(this));
+            t.setMaxLines(2);
+            t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            col.addView(t);
+            if (!subtitle.isEmpty()) {
+                TextView sub = UI.tv(this, subtitle, 10, false, UI.dim(this));
+                sub.setSingleLine(true);
+                sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                col.addView(sub);
+            }
+            row.addView(col, new LinearLayout.LayoutParams(0, -2, 1f));
+            if (lockedAt(k)) row.addView(UI.iconView(this, R.drawable.ic_lock, 14, UI.dim(this)));
+            else if (Progress.watched(this, ids[k])) row.addView(UI.iconView(this, R.drawable.ic_check, 14, UI.TEAL));
+            row.setOnClickListener(v -> { closePlaylistPanel(); if (at != index) switchTo(at); });
+            Motion.press(row);
+            LinearLayout.LayoutParams lp = UI.matchWrap();
+            lp.bottomMargin = UI.dp(this, 6);
+            list.addView(row, lp);
+            if (now) current = row;
+        }
+        ScrollView sv = new ScrollView(this);
+        sv.setVerticalScrollBarEnabled(false);
+        sv.addView(list);
+        card.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1f));
+
+        int w = Math.min(UI.dp(this, 340), (int) (getResources().getDisplayMetrics().widthPixels * 0.5f));
+        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(w, -1, Gravity.END);
+        cp.setMargins(0, UI.dp(this, 8), UI.dp(this, 8), UI.dp(this, 8));
+        overlay.addView(card, cp);
+        videoHolder.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
+
+        scrim.setAlpha(0f);
+        scrim.animate().alpha(1f).setDuration(260).start();
+        card.setTranslationX(w);
+        card.animate().translationX(0f).setDuration(420).setInterpolator(Motion.SMOOTH).start();
+        final View cur = current;
+        if (cur != null) sv.post(() -> sv.scrollTo(0, Math.max(0, cur.getTop() - UI.dp(this, 40))));
+    }
+
+    private void closePlaylistPanel() {
+        final FrameLayout p = panel;
+        if (p == null) return;
+        panel = null;
+        p.animate().alpha(0f).setDuration(200).withEndAction(() -> videoHolder.removeView(p)).start();
+    }
+
     private boolean autoNext() { return getSharedPreferences("player", MODE_PRIVATE).getBoolean("autonext", true); }
 
     private boolean lockedAt(int k) { return Access.isDemo() && !frees[k]; }
@@ -292,6 +381,7 @@ public class PlayerActivity extends BaseActivity {
             LinearLayout col = new LinearLayout(this);
             col.setOrientation(LinearLayout.VERTICAL);
             col.addView(UI.tv(this, titles[k], 15, true, UI.text(this)));
+            if (!subtitle.isEmpty()) col.addView(UI.tv(this, subtitle, 11, false, UI.dim(this)));
             if (now) col.addView(UI.tv(this, "Now playing", 11, true, UI.TEAL));
             row.addView(col, new LinearLayout.LayoutParams(0, -2, 1f));
             if (lockedAt(k)) row.addView(UI.iconView(this, R.drawable.ic_lock, 16, UI.dim(this)));
@@ -447,6 +537,7 @@ public class PlayerActivity extends BaseActivity {
         if (player != null) { player.release(); player = null; }
         if (yt != null) { yt.release(); yt = null; }
         ytControls = null;
+        panel = null;
         videoHolder.removeAllViews();
         videoHolder.addView(new ProgressBar(this), new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
         if (Downloads.has(this, lectureId)) {  // saved on this phone: plays with no internet
@@ -499,6 +590,7 @@ public class PlayerActivity extends BaseActivity {
         videoHolder.addView(ytControls, new FrameLayout.LayoutParams(-1, -1));
         ytControls.setOnEnded(this::onVideoEnded);
         ytControls.setNeighbours(index > 0, index < ids.length - 1, () -> switchTo(index - 1), () -> switchTo(index + 1));
+        ytControls.setOnPlaylist(ids.length > 1 ? this::showPlaylistPanel : null);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         player.setMediaItem(MediaItem.fromUri(src.url));
         float from = Progress.resume(this, lectureId);
@@ -547,6 +639,7 @@ public class PlayerActivity extends BaseActivity {
         videoHolder.addView(ytControls, new FrameLayout.LayoutParams(-1, -1));
         ytControls.setOnEnded(this::onVideoEnded);
         ytControls.setNeighbours(index > 0, index < ids.length - 1, () -> switchTo(index - 1), () -> switchTo(index + 1));
+        ytControls.setOnPlaylist(ids.length > 1 ? this::showPlaylistPanel : null);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         yt.loadVideo(videoId);

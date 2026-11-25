@@ -167,7 +167,15 @@ public class YtControls extends FrameLayout {
     /** Called once when the video reaches its end (used for auto-play of the next lecture). */
     public void setOnEnded(Runnable r) { onEnded = r; }
 
-    private ImageView prevBtn, nextBtn;
+    private ImageView prevBtn, nextBtn, playlistBtn;
+    private Runnable onPlaylist;
+
+    /** Playlist button in the top bar; it only shows in landscape / fullscreen, and only when set. */
+    public void setOnPlaylist(Runnable r) { onPlaylist = r; updatePlaylistBtn(); }
+
+    private void updatePlaylistBtn() {
+        if (playlistBtn != null) playlistBtn.setVisibility(onPlaylist != null && host.isFullscreen() ? View.VISIBLE : View.GONE);
+    }
     private Runnable onPrev, onNext;
 
     /** Shows the previous / next lecture buttons next to play (like PLAYit). */
@@ -285,6 +293,12 @@ public class YtControls extends FrameLayout {
         ttl.setEllipsize(TextUtils.TruncateAt.END);
         ttl.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
         topRow.addView(ttl, new LinearLayout.LayoutParams(0, -2, 1f));
+        playlistBtn = new ImageView(c);
+        playlistBtn.setScaleType(ImageView.ScaleType.CENTER);
+        playlistBtn.setImageDrawable(UI.icon(c, R.drawable.ic_playlist, 24, Color.WHITE));
+        playlistBtn.setOnClickListener(v -> { if (onPlaylist != null) onPlaylist.run(); });
+        playlistBtn.setVisibility(View.GONE);
+        topRow.addView(playlistBtn, new LinearLayout.LayoutParams(dp(48), dp(40)));
         controls.addView(topRow, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
 
         // centre: -10s, play/pause, +10s
@@ -663,6 +677,7 @@ public class YtControls extends FrameLayout {
 
     private void showControls() {
         shown = true;
+        updatePlaylistBtn();
         controls.setVisibility(View.VISIBLE);
         scheduleHide();
     }
