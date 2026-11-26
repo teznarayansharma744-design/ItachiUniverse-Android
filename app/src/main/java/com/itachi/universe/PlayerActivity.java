@@ -348,7 +348,7 @@ public class PlayerActivity extends BaseActivity {
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(UI.dp(this, 10), UI.dp(this, 9), UI.dp(this, 10), UI.dp(this, 9));
-            row.setBackground(UI.box(now ? 0x3319C3B1 : (UI.dark(this) ? 0x14FFFFFF : 0x12000000), UI.dp(this, 14), 0, 0));
+            row.setBackground(UI.box(now ? 0x33E63950 : (UI.dark(this) ? 0x14FFFFFF : 0x12000000), UI.dp(this, 14), 0, 0));
             if (now) row.addView(UI.iconView(this, R.drawable.ic_play, 16, UI.TEAL), UI.lp(UI.dp(this, 26), UI.dp(this, 16)));
             else {
                 TextView num = UI.tv(this, String.valueOf(k + 1), 13, true, UI.dim(this));
@@ -473,7 +473,7 @@ public class PlayerActivity extends BaseActivity {
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             TextView time = UI.tv(this, Progress.clock(m.t), 13, true, UI.TEAL);
-            time.setBackground(UI.box(0x2219C3B1, UI.dp(this, 999), 0, 0));
+            time.setBackground(UI.box(0x22E63950, UI.dp(this, 999), 0, 0));
             time.setPadding(UI.dp(this, 10), UI.dp(this, 5), UI.dp(this, 10), UI.dp(this, 5));
             row.addView(time);
             TextView label = UI.tv(this, m.label.isEmpty() ? "Bookmark" : m.label, 14, false, UI.text(this));

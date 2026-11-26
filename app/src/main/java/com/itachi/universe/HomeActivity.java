@@ -102,7 +102,7 @@ public class HomeActivity extends BaseActivity {
         TextView chip = UI.tv(this, Access.isDemo() ? "DEMO" : "PREMIUM", 11, true, text);
         chip.setLetterSpacing(0.1f);
         chip.setPadding(UI.dp(this, 12), UI.dp(this, 7), UI.dp(this, 12), UI.dp(this, 7));
-        chip.setBackground(UI.box(0x665B5BFF, UI.dp(this, 999), UI.border(this), 1));
+        chip.setBackground(UI.box(0x66A3122A, UI.dp(this, 999), UI.border(this), 1));
         header.addView(chip);
         col.addView(header, UI.matchWrap());
         col.addView(UI.space(this, 20));
@@ -123,7 +123,7 @@ public class HomeActivity extends BaseActivity {
         loadAnnouncement();
 
         if (Access.isDemo()) {
-            LinearLayout banner = UI.card(this, 24, 16, new int[]{0x595B5BFF, 0x2E19C3B1},
+            LinearLayout banner = UI.card(this, 24, 16, new int[]{0x59A3122A, 0x2EE63950},
                     v -> startActivity(new Intent(this, KeyActivity.class)));
             banner.addView(UI.tv(this, "You are in Demo Mode", 15, true, text));
             banner.addView(UI.space(this, 4));

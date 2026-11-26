@@ -11,7 +11,7 @@ import java.util.Map;
 public final class Models {
     private Models() {}
 
-    public static final int[] TINTS = {0xFF5B5BFF, 0xFF19C3B1, 0xFFFF6AA2, 0xFFFFB84D};
+    public static final int[] TINTS = {0xFFE63950, 0xFFFF5A36, 0xFFA3122A, 0xFFFF8A4D};
 
     public static class Lecture {
         public int id;

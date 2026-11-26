@@ -205,7 +205,7 @@ public class AdminPanelActivity extends BaseActivity {
         key.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
         top.addView(key, new LinearLayout.LayoutParams(0, -2, 1f));
 
-        int color = "active".equals(k.status) ? UI.TEAL : "revoked".equals(k.status) ? 0xFFFF6B6B : 0xFFFFB84D;
+        int color = "active".equals(k.status) ? 0xFF34C77B : "revoked".equals(k.status) ? 0xFFFF6B6B : 0xFFFFB84D;
         TextView chip = UI.tv(this, k.status.toUpperCase(), 10, true, color);
         chip.setPadding(UI.dp(this, 8), UI.dp(this, 3), UI.dp(this, 8), UI.dp(this, 3));
         chip.setBackground(UI.box((color & 0x00FFFFFF) | 0x30000000, UI.dp(this, 999), 0, 0));

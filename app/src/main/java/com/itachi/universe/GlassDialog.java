@@ -209,7 +209,7 @@ public class GlassDialog extends Dialog {
 
         float r = UI.dp(c, 28);
         GradientDrawable base = new GradientDrawable();
-        base.setColor(dark ? 0xCC141A33 : 0xCCF3F5FF);   // dense enough to read on phones without blur
+        base.setColor(dark ? 0xCC1E0A10 : 0xCCFFF4F5);   // dense enough to read on phones without blur
         base.setCornerRadius(r);
         GradientDrawable sheen = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                 dark ? new int[]{0x3CFFFFFF, 0x08FFFFFF} : new int[]{0x99FFFFFF, 0x22FFFFFF});

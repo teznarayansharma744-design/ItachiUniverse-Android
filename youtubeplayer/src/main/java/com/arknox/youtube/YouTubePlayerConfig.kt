@@ -10,7 +10,7 @@ package com.arknox.youtube
  * @property autoplay Whether to autoplay video on load
  */
 data class YouTubePlayerConfig(
-    val themeColor: String = "#3058e5",
+    val themeColor: String = "#e63950",
     val showCaptions: Boolean = true,
     val showSpeed: Boolean = true,
     val showQuality: Boolean = true,

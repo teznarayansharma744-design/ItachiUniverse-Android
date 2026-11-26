@@ -26,12 +26,12 @@ public final class GlassToast {
         if (current != null && current.getParent() != null) ((ViewGroup) current.getParent()).removeView(current);
 
         boolean dark = UI.dark(a);
-        TextView t = UI.tv(a, msg, 14, true, dark ? Color.WHITE : 0xFF121528);
+        TextView t = UI.tv(a, msg, 14, true, dark ? Color.WHITE : 0xFF2A1014);
         t.setGravity(Gravity.CENTER);
         t.setMaxWidth(UI.dp(a, 320));
         t.setPadding(UI.dp(a, 20), UI.dp(a, 13), UI.dp(a, 20), UI.dp(a, 13));
         GradientDrawable g = new GradientDrawable();
-        g.setColor(dark ? 0xE61A2142 : 0xECF6F7FF);
+        g.setColor(dark ? 0xE62A0E14 : 0xECFFF4F5);
         g.setCornerRadius(UI.dp(a, 26));
         g.setStroke(Math.max(1, UI.dp(a, 1)), dark ? 0x55FFFFFF : 0xFFFFFFFF);
         t.setBackground(g);

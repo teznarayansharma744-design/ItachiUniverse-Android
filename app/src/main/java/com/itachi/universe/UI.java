@@ -31,18 +31,18 @@ import androidx.appcompat.app.AppCompatDelegate;
 public final class UI {
     private UI() {}
 
-    public static final int TEAL = 0xFF19C3B1;
-    public static final int INDIGO = 0xFF5B5BFF;
-    public static final int PINK = 0xFFFF6AA2;
+    public static final int TEAL = 0xFFE63950;
+    public static final int INDIGO = 0xFFA3122A;
+    public static final int PINK = 0xFFFF7A59;
 
     // ---------- theme ----------
     public static boolean dark(Context c) {
         return (c.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 == Configuration.UI_MODE_NIGHT_YES;
     }
-    public static int bg(Context c) { return dark(c) ? 0xFF0A0E22 : 0xFFE9EDFA; }
-    public static int text(Context c) { return dark(c) ? Color.WHITE : 0xFF121528; }
-    public static int dim(Context c) { return dark(c) ? 0xB8FFFFFF : 0xFF4A4F6A; }
+    public static int bg(Context c) { return dark(c) ? 0xFF0A0204 : 0xFFFBE9EB; }
+    public static int text(Context c) { return dark(c) ? Color.WHITE : 0xFF2A1014; }
+    public static int dim(Context c) { return dark(c) ? 0xB8FFFFFF : 0xFF6B4A50; }
     public static int fill(Context c) { return dark(c) ? 0x14FFFFFF : 0x8CFFFFFF; }
     public static int border(Context c) { return dark(c) ? 0x2EFFFFFF : 0xE6FFFFFF; }
 
@@ -218,7 +218,7 @@ public final class UI {
     }
 
     public static TextView textButton(Context c, String label, View.OnClickListener click) {
-        TextView t = tv(c, label, 14, true, 0xFF7C7CFF);
+        TextView t = tv(c, label, 14, true, 0xFFFF7A8A);
         t.setPadding(dp(c, 8), dp(c, 10), dp(c, 8), dp(c, 10));
         t.setOnClickListener(click);
         return t;
@@ -289,11 +289,11 @@ public final class UI {
             super.onSizeChanged(w, h, ow, oh);
             boolean d = dark(getContext());
             base.setShader(new LinearGradient(0, 0, 0, h,
-                    d ? new int[]{0xFF0E1430, 0xFF0A0E22, 0xFF070A18} : new int[]{0xFFF1F3FF, 0xFFE9EDFA, 0xFFDDE2F4},
+                    d ? new int[]{0xFF1C060A, 0xFF120306, 0xFF090203} : new int[]{0xFFFFF3F4, 0xFFFBE9EB, 0xFFF3D3D8},
                     new float[]{0f, 0.55f, 1f}, Shader.TileMode.CLAMP));
             float r = Math.max(w, 1) * 0.95f;
             glow.setShader(new RadialGradient(w / 2f, -0.04f * h, r,
-                    d ? 0xFF2B3A8C : 0xFFC4CFFF, d ? 0x002B3A8C : 0x00C4CFFF, Shader.TileMode.CLAMP));
+                    d ? 0xFF7A0F1E : 0xFFFFC2CA, d ? 0x007A0F1E : 0x00FFC2CA, Shader.TileMode.CLAMP));
         }
 
         @Override

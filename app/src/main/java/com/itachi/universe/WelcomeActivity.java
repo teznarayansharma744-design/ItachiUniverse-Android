@@ -94,7 +94,7 @@ public class WelcomeActivity extends BaseActivity {
         if (badge != null) {
             TextView t = UI.tv(this, badge, 11, true, 0xFF0B9E8F);
             t.setPadding(UI.dp(this, 10), UI.dp(this, 5), UI.dp(this, 10), UI.dp(this, 5));
-            t.setBackground(UI.box(0x3819C3B1, UI.dp(this, 999), 0, 0));
+            t.setBackground(UI.box(0x38E63950, UI.dp(this, 999), 0, 0));
             card.addView(t);
         } else {
             card.addView(UI.iconView(this, R.drawable.ic_chevron, 20, fgDim));
