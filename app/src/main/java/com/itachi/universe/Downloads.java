@@ -50,6 +50,7 @@ public final class Downloads {
     private static final OkHttpClient http = new OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).followRedirects(true).build();
     private static final Map<Integer, Integer> progress = new ConcurrentHashMap<>();   // id -> 0..100
+    private static final Map<Integer, long[]> stats = new ConcurrentHashMap<>();   // id -> {done, total, bytes/sec}
     private static final Map<Integer, AtomicBoolean> cancels = new ConcurrentHashMap<>();
     private static final Map<Integer, String> ytProcesses = new ConcurrentHashMap<>();
     private static final List<Runnable> listeners = new CopyOnWriteArrayList<>();
@@ -68,6 +69,9 @@ public final class Downloads {
 
     public static boolean has(Context c, int id) { return file(c, id).length() > 0; }
     /** -1 = not downloading, otherwise 0..100. */
+    /** {bytes done, total bytes (0 if unknown), bytes per second} while a video is downloading, else null. */
+    public static long[] stats(int id) { return stats.get(id); }
+
     public static int progress(int id) { Integer p = progress.get(id); return p == null ? -1 : p; }
     public static int activeCount() { return progress.size(); }
     public static int averageProgress() {
@@ -274,13 +278,23 @@ public final class Downloads {
                         byte[] buf = new byte[65536];
                         long done = have;
                         int n, last = -1;
+                        long tick = System.currentTimeMillis(), tickBytes = done, bps = 0;
                         while ((n = in.read(buf)) > 0) {
                             if (cancel.get()) throw new IOException("cancelled");
                             out.write(buf, 0, n);
                             done += n;
-                            if (total > 0) {
+                            long now = System.currentTimeMillis();
+                            if (now - tick >= 500) {   // speed, smoothed so the number does not jump around
+                                long inst = (done - tickBytes) * 1000 / Math.max(1, now - tick);
+                                bps = bps == 0 ? inst : (bps * 6 + inst * 4) / 10;
+                                tick = now;
+                                tickBytes = done;
+                                stats.put(id, new long[]{done, Math.max(total, 0), bps});
+                                if (total > 0) progress.put(id, (int) Math.min(99, done * 100 / total));
+                                ping();
+                            } else if (total > 0) {
                                 int p = (int) Math.min(99, done * 100 / total);
-                                if (p != last) { last = p; progress.put(id, p); ping(); }
+                                if (p != last) { last = p; progress.put(id, p); }
                             }
                         }
                     }
@@ -302,6 +316,7 @@ public final class Downloads {
                 }
             } finally {
                 progress.remove(id);
+                stats.remove(id);
                 cancels.remove(id);
                 ping();
             }

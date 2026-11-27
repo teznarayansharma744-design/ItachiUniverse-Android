@@ -21,7 +21,12 @@ public class LecturesActivity extends BaseActivity {
     private int filter = ALL;
     private LinearLayout tabsRow, list;
     private final Map<Integer, TextView> dlButtons = new HashMap<>();
-    private final Runnable dlRefresh = () -> { if (alive()) for (Map.Entry<Integer, TextView> e : dlButtons.entrySet()) styleDl(e.getKey(), e.getValue()); };
+    private final Map<Integer, DownloadPanel> dlPanels = new HashMap<>();
+    private final Runnable dlRefresh = () -> {
+        if (!alive()) return;
+        for (Map.Entry<Integer, TextView> e : dlButtons.entrySet()) styleDl(e.getKey(), e.getValue());
+        for (DownloadPanel p : dlPanels.values()) p.refresh();
+    };
 
     @Override protected void onStart() { super.onStart(); Downloads.addListener(dlRefresh); }
     @Override protected void onStop() { super.onStop(); Downloads.removeListener(dlRefresh); }
@@ -117,6 +122,7 @@ public class LecturesActivity extends BaseActivity {
 
         list.removeAllViews();
         dlButtons.clear();
+        dlPanels.clear();
         List<Models.Lecture> items = new ArrayList<>();
         for (Models.Lecture l : unit.lectures) {
             if (filter == ALL || (filter == VIDEO && l.hasVideo) || (filter == PDF && l.hasPdf)) items.add(l);
@@ -171,6 +177,12 @@ public class LecturesActivity extends BaseActivity {
             LinearLayout.LayoutParams dp = UI.matchWrap();
             dp.topMargin = UI.dp(this, 10);
             card.addView(dl, dp);
+            DownloadPanel panel = new DownloadPanel(this, l.id);
+            dlPanels.put(l.id, panel);
+            LinearLayout.LayoutParams pp = UI.matchWrap();
+            pp.topMargin = UI.dp(this, 12);
+            card.addView(panel, pp);
+            panel.refresh();
         }
 
         LinearLayout.LayoutParams lp = UI.matchWrap();
