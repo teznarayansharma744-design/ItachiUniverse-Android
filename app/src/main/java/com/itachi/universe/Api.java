@@ -65,7 +65,10 @@ public final class Api {
     private static String adminToken;
     private static String premiumToken;
 
+    private static Context appCtx;
+
     public static void init(Context ctx) {
+        appCtx = ctx.getApplicationContext();
         try {
             MasterKey key = new MasterKey.Builder(ctx).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build();
             prefs = EncryptedSharedPreferences.create(ctx, "secure", key,
@@ -168,14 +171,28 @@ public final class Api {
     public static void adminLogin(String password) throws ApiException {
         JsonObject body = new JsonObject();
         body.addProperty("password", password);
+        body.addProperty("device_id", DeviceId.get(appCtx));   // the server only lets the owner's phone in
         JsonObject data = call("POST", "/admin/login", body).getAsJsonObject();
         adminToken = data.get("token").getAsString();
-        prefs.edit().putString("admin_token", adminToken).apply();
+        // Kept (encrypted) so the admin session renews itself and never logs the owner out.
+        prefs.edit().putString("admin_token", adminToken).putString("admin_pw", password).apply();
     }
 
     public static void adminLogout() {
         adminToken = null;
-        prefs.edit().remove("admin_token").apply();
+        prefs.edit().remove("admin_token").remove("admin_pw").apply();
+    }
+
+    /** Quietly signs in again with the remembered admin code. true = renewed, false = refused, null = no connection. */
+    private static Boolean renewAdmin() {
+        String pw = prefs.getString("admin_pw", null);
+        if (pw == null) return false;
+        try {
+            adminLogin(pw);
+            return true;
+        } catch (ApiException e) {
+            return (e.httpCode == 401 || e.httpCode == 403) ? Boolean.FALSE : null;
+        }
     }
 
     // ---------- admin: keys ----------
@@ -328,6 +345,11 @@ public final class Api {
 
         if (code == 401 && !path.equals("/admin/login")) {
             if (isAdmin) {
+                if (!renewed) {
+                    Boolean ok = renewAdmin();
+                    if (ok == null) throw new ApiException("Cannot reach the server. Check your internet and try again.");
+                    if (ok) return call(method, path, body, timeoutSeconds, true);
+                }
                 adminLogout();
                 throw new ApiException("Session expired. Please log in again.", true);
             }

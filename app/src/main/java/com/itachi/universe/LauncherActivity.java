@@ -17,7 +17,7 @@ public class LauncherActivity extends BaseActivity {
         setScreen(f);
 
         if (!Api.hasPremiumToken()) {
-            go(false);
+            go(false);   // (the owner's phone is sent to Home by go(): the Admin tab lives there)
             return;
         }
         // false = server says the key is revoked/expired; null = could not tell (trust the saved key)
@@ -29,7 +29,8 @@ public class LauncherActivity extends BaseActivity {
 
     private void go(boolean premium) {
         Access.premium = premium;
-        startActivity(new Intent(this, premium ? HomeActivity.class : WelcomeActivity.class));
+        boolean home = premium || Api.hasAdminSession();   // an unlocked admin never goes back to the welcome screen
+        startActivity(new Intent(this, home ? HomeActivity.class : WelcomeActivity.class));
         finish();
     }
 }
