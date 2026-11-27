@@ -716,6 +716,14 @@ public class PlayerActivity extends BaseActivity {
         applyLayout();
     }
 
+    private boolean autoRotateOn() {
+        try {
+            return android.provider.Settings.System.getInt(getContentResolver(), android.provider.Settings.System.ACCELEROMETER_ROTATION, 1) == 1;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
     private void watchRotation() {
         // follow the phone's auto-rotate setting: held sideways -> landscape, upright -> portrait
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
@@ -726,7 +734,9 @@ public class PlayerActivity extends BaseActivity {
                 boolean upright = deg < 30 || deg > 330 || (deg > 150 && deg < 210);
                 if ((forcedLandscape == 1 && sideways) || (forcedLandscape == 0 && upright)) {
                     forcedLandscape = -1;
-                    setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+                    // Only hand control back when the phone's auto-rotate is ON. With auto-rotate off,
+                    // "user" orientation means portrait, which threw the video back out of landscape.
+                    if (autoRotateOn()) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
                 }
             }
         };

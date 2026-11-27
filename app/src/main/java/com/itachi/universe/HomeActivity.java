@@ -293,8 +293,10 @@ public class HomeActivity extends BaseActivity {
         dlText.addView(UI.tv(this, "Lectures saved for offline watching", 13, false, dim));
         dl.addView(dlText, new LinearLayout.LayoutParams(0, -2, 1f));
         dl.addView(UI.iconView(this, R.drawable.ic_chevron, 20, dim));
-        col.addView(dl, UI.matchWrap());
-        col.addView(UI.space(this, 12));
+        if (!Access.isDemo()) {   // downloads are a premium feature
+            col.addView(dl, UI.matchWrap());
+            col.addView(UI.space(this, 12));
+        }
 
         LinearLayout dev = UI.card(this, 22, 18, null, null);
         dev.setOrientation(LinearLayout.HORIZONTAL);

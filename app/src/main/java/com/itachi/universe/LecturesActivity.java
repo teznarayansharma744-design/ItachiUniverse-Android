@@ -26,12 +26,21 @@ public class LecturesActivity extends BaseActivity {
     @Override protected void onStart() { super.onStart(); Downloads.addListener(dlRefresh); }
     @Override protected void onStop() { super.onStop(); Downloads.removeListener(dlRefresh); }
 
+    private Models.UnitItem batchDirect;
+
     private void styleDl(int id, TextView b) {
         int p = Downloads.progress(id);
         int col = b.getCurrentTextColor();
         if (p >= 0) { b.setText("Downloading " + p + "%  \u00B7  tap to cancel"); UI.withIcon(b, R.drawable.ic_close, 16); }
         else if (Downloads.has(this, id)) { b.setText("Saved offline  \u00B7  tap to remove"); UI.withIcon(b, R.drawable.ic_check, 16); }
         else { b.setText("Download"); UI.withIcon(b, R.drawable.ic_download, 16); }
+    }
+
+    /** Name of the folder these lectures sit in: "Subject / Unit", just the subject, or the batch. */
+    private String folderLabel() {
+        if (unit == batchDirect) return subject.name;
+        if (unit == subject.direct) return subject.name;
+        return subject.name + " / " + unit.name;
     }
 
     private void onDlTap(Models.Lecture l) {
@@ -44,7 +53,7 @@ public class LecturesActivity extends BaseActivity {
             return;
         }
         toast("Download started. It is saved privately inside the app.");
-        Downloads.start(this, l.id, l.title, subject.name + " / " + unit.name, msg -> { if (alive()) toast(msg); });
+        Downloads.start(this, l.id, l.title, folderLabel(), l.hasPdf, msg -> { if (alive()) toast(msg); });
     }
 
     @Override
@@ -57,6 +66,7 @@ public class LecturesActivity extends BaseActivity {
                 subject = new Models.Subject();
                 subject.name = batch.name;
                 unit = batch.direct;
+                batchDirect = batch.direct;
             } else {
                 subject = batch.subjects.get(si);
                 unit = ui < 0 ? subject.direct : subject.units.get(ui);
@@ -154,7 +164,7 @@ public class LecturesActivity extends BaseActivity {
                     new LinearLayout.LayoutParams(0, -2, 1f));
         }
         card.addView(actions, UI.matchWrap());
-        if (l.hasVideo) {
+        if (l.hasVideo && !Access.isDemo()) {   // no downloads in demo mode
             TextView dl = UI.pillButton(this, "", v -> { if (locked) Access.showPremiumRequired(this); else onDlTap(l); });
             styleDl(l.id, dl);
             dlButtons.put(l.id, dl);
@@ -173,7 +183,7 @@ public class LecturesActivity extends BaseActivity {
         Intent i = new Intent(this, PlayerActivity.class);
         i.putExtra("id", l.id);
         i.putExtra("title", l.title);
-        i.putExtra("subtitle", subject.name + " / " + unit.name);
+        i.putExtra("subtitle", folderLabel());
         i.putExtra("pdf", l.hasPdf);
         // the other videos in this folder, so the player can list them and play the next one
         List<Models.Lecture> vids = new ArrayList<>();

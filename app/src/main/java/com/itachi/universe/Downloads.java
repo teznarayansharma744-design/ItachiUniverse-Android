@@ -221,6 +221,22 @@ public final class Downloads {
     // ---------- download ----------
     /** Starts saving a lecture's video. onFail runs on the main thread with a readable message. */
     public static void start(Context ctx, int id, String title, String subtitle, java.util.function.Consumer<String> onFail) {
+        start(ctx, id, title, subtitle, false, onFail);
+    }
+
+    /** Saves the PDF notes of a lecture next to its video so both sit in the same folder offline. */
+    private static void savePdfFor(Context c, int id, String title, String subtitle) {
+        try {
+            if (hasPdf(c, id)) return;
+            Models.PlaySource src = Api.playSource(id, "pdf");
+            byte[] data = Api.download(MediaLinks.directPdfUrl(src.url), src.headers);
+            savePdf(c, id, title, subtitle, data);
+        } catch (Exception ignored) {
+            // the video is already saved; the PDF can still be saved from the PDF screen
+        }
+    }
+
+    public static void start(Context ctx, int id, String title, String subtitle, boolean withPdf, java.util.function.Consumer<String> onFail) {
         final Context c = ctx.getApplicationContext();
         if (progress.containsKey(id) || has(c, id)) return;
         final AtomicBoolean cancel = new AtomicBoolean(false);
@@ -275,6 +291,7 @@ public final class Downloads {
                 it.id = id; it.title = title; it.subtitle = subtitle;
                 remember(c, it);
                 }
+                if (withPdf) { progress.put(id, 99); ping(); savePdfFor(c, id, title, subtitle); }
             } catch (Exception e) {
                 boolean wasCancelled = cancel.get() || "cancelled".equals(e.getMessage());
                 error = wasCancelled ? null : (e.getMessage() == null ? "Download failed." : e.getMessage());

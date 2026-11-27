@@ -38,6 +38,7 @@ public final class Api {
 
     public static class ApiException extends Exception {
         public final boolean unauthorized;
+        public int httpCode;   // set for answers the server gave (4xx/5xx); 0 for network trouble
         public ApiException(String message, boolean unauthorized) { super(message); this.unauthorized = unauthorized; }
         public ApiException(String message) { this(message, false); }
     }
@@ -116,12 +117,26 @@ public final class Api {
         body.addProperty("device_id", deviceId);
         JsonObject data = call("POST", "/activate", body).getAsJsonObject();
         premiumToken = data.get("token").getAsString();
-        prefs.edit().putString("premium_token", premiumToken).apply();
+        // Remembered so an expired login token can be renewed quietly instead of logging the student out.
+        prefs.edit().putString("premium_token", premiumToken)
+                .putString("premium_key", key).putString("premium_device", deviceId).apply();
+    }
+
+    /** true = renewed, false = the server refused the key (revoked / expired / other phone), null = could not reach it. */
+    private static Boolean renewToken() {
+        String key = prefs.getString("premium_key", null), dev = prefs.getString("premium_device", null);
+        if (key == null || dev == null) return false;
+        try {
+            activate(key, dev);
+            return true;
+        } catch (ApiException e) {
+            return (e.httpCode == 403 || e.httpCode == 404) ? Boolean.FALSE : null;
+        }
     }
 
     public static void clearPremium() {
         premiumToken = null;
-        prefs.edit().remove("premium_token").apply();
+        prefs.edit().remove("premium_token").remove("premium_key").remove("premium_device").apply();
     }
 
     /** true = key valid, false = server says it is not, null = could not tell (no internet / server asleep). */
@@ -275,6 +290,11 @@ public final class Api {
 
     private static JsonElement call(String method, String path, JsonObject body, int timeoutSeconds)
             throws ApiException {
+        return call(method, path, body, timeoutSeconds, false);
+    }
+
+    private static JsonElement call(String method, String path, JsonObject body, int timeoutSeconds, boolean renewed)
+            throws ApiException {
         boolean isAdmin = path.startsWith("/admin");
         String token = isAdmin ? adminToken : premiumToken;
 
@@ -311,6 +331,11 @@ public final class Api {
                 adminLogout();
                 throw new ApiException("Session expired. Please log in again.", true);
             }
+            if (!renewed && !path.equals("/activate")) {   // the login token may just have run out: renew it quietly
+                Boolean ok = renewToken();
+                if (ok == null) throw new ApiException("Cannot reach the server. Check your internet and try again.");
+                if (ok) return call(method, path, body, timeoutSeconds, true);
+            }
             clearPremium();
             throw new ApiException("Your premium key is no longer valid.", true);
         }
@@ -320,18 +345,31 @@ public final class Api {
                 JsonElement d = decoded.getAsJsonObject().get("detail");
                 if (d != null && d.isJsonPrimitive()) message = d.getAsString();
             }
-            throw new ApiException(message);
+            ApiException ex = new ApiException(message);
+            ex.httpCode = code;
+            throw ex;
         }
         return decoded == null ? new JsonObject() : decoded;
     }
 
     /** Downloads a file (PDF). Used by the PDF screen. */
     public static byte[] download(String url, Map<String, String> headers) throws ApiException {
+        return download(url, headers, false);
+    }
+
+    private static byte[] download(String url, Map<String, String> headers, boolean renewed) throws ApiException {
         Request.Builder rb = new Request.Builder().url(url);
         for (Map.Entry<String, String> e : headers.entrySet()) rb.header(e.getKey(), e.getValue());
         OkHttpClient c = client.newBuilder().callTimeout(90, TimeUnit.SECONDS).build();
         try (Response r = c.newCall(rb.build()).execute()) {
             if (r.code() == 401) {
+                Boolean ok = renewed ? Boolean.FALSE : renewToken();
+                if (ok == null) throw new ApiException("Cannot reach the server. Check your internet and try again.");
+                if (ok && headers.containsKey("Authorization")) {
+                    Map<String, String> h2 = new HashMap<>(headers);
+                    h2.putAll(authHeaders());
+                    return download(url, h2, true);
+                }
                 clearPremium();
                 throw new ApiException("Your premium key is no longer valid.", true);
             }

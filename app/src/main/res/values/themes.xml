@@ -6,6 +6,8 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowAnimationStyle">@style/HxWindowAnim</item>
         <item name="colorPrimary">#A3122A</item>
+        <item name="android:fontFamily">@font/poppins</item>
+        <item name="fontFamily">@font/poppins</item>
     </style>
 
     <!-- Screens slide in with a soft deceleration while the old one drifts back, like HyperOS / ColorOS. -->
@@ -23,5 +25,6 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowAnimationStyle">@null</item>
         <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:fontFamily">@font/poppins</item>
     </style>
 </resources>

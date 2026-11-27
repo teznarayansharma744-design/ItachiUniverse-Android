@@ -82,12 +82,25 @@ public final class UI {
     }
 
     // ---------- views ----------
+    private static final Typeface[] FONTS = new Typeface[3];
+
+    /** Poppins: 0 regular, 1 medium (labels, buttons), 2 bold (headings). Falls back to the system font. */
+    public static Typeface font(Context c, int weight) {
+        if (FONTS[weight] == null) {
+            int[] res = {R.font.poppins_regular, R.font.poppins_medium, R.font.poppins_bold};
+            try { FONTS[weight] = androidx.core.content.res.ResourcesCompat.getFont(c.getApplicationContext(), res[weight]); }
+            catch (Exception ignored) {}
+            if (FONTS[weight] == null) FONTS[weight] = weight == 0 ? Typeface.DEFAULT : Typeface.DEFAULT_BOLD;
+        }
+        return FONTS[weight];
+    }
+
     public static TextView tv(Context c, String s, float sp, boolean bold, int color) {
         TextView t = new TextView(c);
         t.setText(s);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp * scale(c));
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp * scale(c) * 0.95f);   // Poppins runs a little wider than the system font
         t.setTextColor(color);
-        if (bold) t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTypeface(font(c, bold ? (sp >= 17 ? 2 : 1) : 0));
         return t;
     }
 
@@ -231,6 +244,7 @@ public final class UI {
         e.setTextColor(text(c));
         e.setHintTextColor(dim(c));
         e.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        e.setTypeface(font(c, 0));
         e.setInputType(InputType.TYPE_CLASS_TEXT);
         e.setPadding(dp(c, 16), dp(c, 14), dp(c, 16), dp(c, 14));
         e.setBackground(new GlassDrawable(c, dp(c, 16), 0, 1.2f));

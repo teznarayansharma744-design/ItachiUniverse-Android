@@ -74,7 +74,7 @@ public class PdfPanel extends LinearLayout {
         this.title = title == null || title.isEmpty() ? "PDF" : title;
         setOrientation(VERTICAL);
 
-        if (toolbar) {
+        if (toolbar && !Access.isDemo()) {   // demo users cannot save or export anything
             LinearLayout bar = new LinearLayout(host);
             bar.setGravity(Gravity.CENTER_VERTICAL);
             bar.setPadding(UI.dp(host, 12), UI.dp(host, 2), UI.dp(host, 12), UI.dp(host, 2));

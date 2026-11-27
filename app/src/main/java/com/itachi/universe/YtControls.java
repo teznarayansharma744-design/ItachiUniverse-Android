@@ -224,7 +224,7 @@ public class YtControls extends FrameLayout {
         t.setTextColor(Color.WHITE);
         t.setTextSize(sp);
         t.setGravity(Gravity.CENTER);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTypeface(UI.font(getContext(), 1));
         return t;
     }
 
