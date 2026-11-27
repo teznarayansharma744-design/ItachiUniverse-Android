@@ -78,8 +78,28 @@ public class KeyActivity extends BaseActivity {
         }
         busy = true;
         activate.setText("Activating...");
-        run(() -> { Api.activate(key, deviceId); return null; }, new Api.Callback<Object>() {
-            @Override public void onSuccess(Object r) {
+        run(() -> {
+            try {
+                Api.activate(key, deviceId);
+                return false;
+            } catch (Api.ApiException e) {
+                // Not a student key: the owner can type the admin code here instead. The server checks it,
+                // nothing secret is stored in the app.
+                if (e.httpCode == 404) {
+                    try { Api.adminLogin(key); return true; } catch (Api.ApiException ignored) { }
+                }
+                throw e;
+            }
+        }, new Api.Callback<Boolean>() {
+            @Override public void onSuccess(Boolean admin) {
+                if (admin) {
+                    toast("Admin unlocked. Open the Admin tab.");
+                    Intent h = new Intent(KeyActivity.this, HomeActivity.class);
+                    h.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(h);
+                    finish();
+                    return;
+                }
                 Access.premium = true;
                 Intent i = new Intent(KeyActivity.this, HomeActivity.class);
                 i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

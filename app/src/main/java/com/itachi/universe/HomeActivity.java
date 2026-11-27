@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class HomeActivity extends BaseActivity {
-    private final View[] tabs = new View[4];
+    private View[] tabs;
     private PillTabs nav;
     private static final int[] NAV_ICONS = {R.drawable.ic_home, R.drawable.ic_library, R.drawable.ic_settings, R.drawable.ic_info};
     private final List<LinearLayout> batchLists = new ArrayList<>();
@@ -31,15 +31,20 @@ public class HomeActivity extends BaseActivity {
         FrameLayout content = new FrameLayout(this);
         root.addView(content, new FrameLayout.LayoutParams(-1, -1));
 
+        final boolean admin = Api.hasAdminSession();   // owners get an extra Admin tab
+        tabs = new View[admin ? 5 : 4];
         tabs[0] = refreshable(homeTab());
         tabs[1] = refreshable(libraryTab());
         tabs[2] = settingsTab();
         tabs[3] = aboutTab();
+        if (admin) tabs[4] = adminTab();
         for (View t : tabs) content.addView(t, new FrameLayout.LayoutParams(-1, -1));
 
         // bottom navigation: the chosen tab grows into a pill
-        String[] labels = {"Home", "Library", "Settings", "About"};
-        nav = new PillTabs(this, NAV_ICONS, labels, this::select);
+        String[] labels = admin ? new String[]{"Home", "Library", "Settings", "About", "Admin"}
+                : new String[]{"Home", "Library", "Settings", "About"};
+        int[] icons = admin ? new int[]{NAV_ICONS[0], NAV_ICONS[1], NAV_ICONS[2], NAV_ICONS[3], R.drawable.ic_shield} : NAV_ICONS;
+        nav = new PillTabs(this, icons, labels, this::select);
         FrameLayout.LayoutParams np = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
         np.setMargins(UI.dp(this, 20), 0, UI.dp(this, 20), UI.dp(this, 16));
         root.addView(nav, np);
@@ -239,6 +244,30 @@ public class HomeActivity extends BaseActivity {
 
     // ---------- About developer ----------
     private LinearLayout aboutBox;
+
+    // ---------- Admin (only after the owner typed the admin code on the key screen) ----------
+    private View adminTab() {
+        LinearLayout col = tabColumn();
+        col.addView(UI.tv(this, "Admin", 28, true, UI.text(this)));
+        col.addView(UI.space(this, 8));
+        col.addView(UI.tv(this, "Manage keys, content and the announcement banner.", 14, false, UI.dim(this)));
+        col.addView(UI.space(this, 20));
+        col.addView(UI.gradientButton(this, "Open admin panel", v -> startActivity(new Intent(this, AdminPanelActivity.class))));
+        col.addView(UI.space(this, 14));
+        LinearLayout out = UI.card(this, 22, 18, null, v -> new GlassDialog.Builder(this)
+                .setTitle("Log out of admin?")
+                .setMessage("The Admin tab disappears until you enter the admin code again.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Log out", (d, w) -> {
+                    Api.adminLogout();
+                    Intent i = new Intent(this, HomeActivity.class);
+                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(i);
+                }).show());
+        out.addView(UI.tv(this, "Log out of admin", 16, true, UI.text(this)));
+        col.addView(out, UI.matchWrap());
+        return tabScroll(col);
+    }
 
     private View aboutTab() {
         LinearLayout col = tabColumn();
